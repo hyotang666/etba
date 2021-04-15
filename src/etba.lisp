@@ -20,14 +20,19 @@
 (defun image-pathname (name)
   (truename (merge-pathnames name *default-image-directory*)))
 
-(fude-gl:defimage :earth (image-pathname "backgrounds/earth.png"))
-
-(fude-gl:deftexture earth :texture-2d
-  (fude-gl:tex-image-2d (fude-gl:image :earth))
-  :texture-min-filter :nearest
-  :texture-mag-filter :nearest)
+(macrolet ((def (name pathname)
+             `(progn
+               (fude-gl:defimage ,name (image-pathname ,pathname))
+               (fude-gl:deftexture ,name :texture-2d
+                 (fude-gl:tex-image-2d (fude-gl:image ,name))
+                 :texture-min-filter :nearest
+                 :texture-mag-filter :nearest))))
+  (def :earth "backgrounds/earth.png")
+  (def :romius "characters/romius.png")
+  (def :mashroom "characters/mashroom.png"))
 
 ;;;; SHADER
+;; BACKGROUND-SHADER
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   ;; DEFVERTICES need this eval-when.
@@ -68,10 +73,36 @@
   :instances `((fude-gl:offset
                 ,(make-map-offset tovia:*width* tovia:*height*))))
 
+;; CHARACTER-SHADER
+
+(fude-gl:defshader character-shader 330 (fude-gl:xy fude-gl:st)
+  (:vertex ((coord :vec2) &uniform (model :mat4) (projection :mat4))
+    (declaim (ftype (function nil (values)) main))
+    (defun main ()
+      "coord = st;"
+      "gl_Position = projection * model * vec4(xy, 0.0, 1.0);"))
+  (:fragment ((color :vec4) &uniform (tex :|sampler2D|))
+    (declaim (ftype (function nil (values)) main))
+    (defun main () "color = vec4(texture(tex, coord));")))
+
+(fude-gl:defvertices character
+    (coerce
+      (vector -0.5 0.5 0.0 (* 1/8 1.0) ; Top left
+              -0.5 -0.5 0.0 0.0 ; Bottom left
+              0.5 0.5 (* 1/8 1.0) (* 1/8 1.0) ; Top right
+              0.5 -0.5 (* 1/8 1.0) 0.0) ; Bottom right
+      '(array single-float (*)))
+  :draw-mode :triangle-strip
+  :shader 'character-shader)
+
 ;;;; TRANSITIONS
 
 (defun test (win)
   (uiop:nest
+    (let ((model
+           (let* ((boxel (tovia:boxel)) (half (/ boxel 2)))
+             (fude-gl:model-matrix half half boxel boxel)))
+          (projection (fude-gl:ortho win))))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
@@ -79,5 +110,11 @@
     (fude-gl:with-clear (win (:color-buffer-bit))
       (fude-gl:with-uniforms ((tex :unit 0))
           'background-shader
-        (setf tex (fude-gl:find-texture 'earth))
-        (fude-gl:draw 'tile)))))
+        (setf tex (fude-gl:find-texture :earth))
+        (fude-gl:draw 'tile))
+      (fude-gl:with-uniforms ((tex :unit 0) (m "model") (p "projection"))
+          'character-shader
+        (setf tex (fude-gl:find-texture :romius)
+              m model
+              p projection)
+        (fude-gl:draw 'character)))))
