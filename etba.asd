@@ -2,9 +2,14 @@
 (in-package :asdf)
 (defsystem "etba"
   :version
-  "0.0.0"
+  "0.1.0"
   :depends-on
-  nil
+  (
+   "uiop" ; Utilities.
+   "cl-sdl2" ; Windowing.
+   "fude-gl" ; Cl-opengl framework.
+   "tovia" ; Top View Action framework.
+   )
   :pathname
   "src/"
   :components
