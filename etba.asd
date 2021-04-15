@@ -2,11 +2,11 @@
 (in-package :asdf)
 (defsystem "etba"
   :version
-  "0.1.0"
+  "0.1.1"
   :depends-on
   (
    "uiop" ; Utilities.
-   "cl-sdl2" ; Windowing.
+   "sdl2" ; Windowing.
    "fude-gl" ; Cl-opengl framework.
    "tovia" ; Top View Action framework.
    )
