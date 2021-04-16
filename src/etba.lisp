@@ -92,4 +92,5 @@
           'background-shader
         (setf tex (fude-gl:find-texture :earth))
         (fude-gl:draw 'tile))
+      (tovia:move player win)
       (fude-gl:draw player))))
