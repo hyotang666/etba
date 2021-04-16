@@ -46,12 +46,9 @@
 
 (defun attack (player win)
   (push
-   (let ((effect (tovia:sprite :hit win)))
-     (multiple-value-bind (x y)
-         (tovia:front player)
-       (setf (tovia:x effect) x
-             (tovia:y effect) y))
-     effect)
+   (multiple-value-bind (x y)
+       (tovia:front player)
+     (tovia:sprite :hit win :x x :y y))
    tovia:*effects*))
 
 (defun action (player win)
@@ -116,7 +113,11 @@
 
 (defun test (win)
   (uiop:nest
-    (let ((player (tovia:sprite :romius win))))
+    (let ((player (tovia:sprite :romius win))
+          (mash
+           (multiple-value-bind (w h)
+               (sdl2:get-window-size win)
+             (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2))))))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
