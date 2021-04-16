@@ -28,13 +28,47 @@
                  :texture-min-filter :nearest
                  :texture-mag-filter :nearest)
                ,@(when spritep
-                   `((tovia:defsprite ,name tovia:4-directional
+                   `((tovia:defsprite ,name ,spritep
                        :unit 1/8
                        :texture (fude-gl:find-texture ,name)
                        :projection #'fude-gl:ortho))))))
   (def :earth "backgrounds/earth.png")
-  (def :romius "characters/romius.png" t)
+  (def :romius "characters/romius.png" tovia:player)
+  (def :hit "effects/hit.png")
   (def :mashroom "characters/mashroom.png"))
+
+(tovia:defsprite :hit tovia:effect
+  :unit 1/4
+  :texture (fude-gl:find-texture :hit)
+  :stepper (alexandria:circular-list '(0 3) '(1 3) '(2 3) nil)
+  :timer 90
+  :projection #'fude-gl:ortho)
+
+(defun attack (player win)
+  (push
+   (let ((effect (tovia:sprite :hit win)))
+     (multiple-value-bind (x y)
+         (tovia:front player)
+       (setf (tovia:x effect) x
+             (tovia:y effect) y))
+     effect)
+   tovia:*effects*))
+
+(defun action (player win)
+  (let ((tracker (tovia:tracker player)))
+    (tovia:keypress-case
+      (:f
+       (if (tovia:key-down-p tracker #\f)
+           (incf (tovia:current (tovia:key-tracker-time tracker)))
+           (progn
+            (attack player win)
+            (tovia:update-keystate tracker #\f :down)
+            (setf (tovia:current (tovia:key-tracker-time tracker)) 0))))
+      (otherwise
+       (cond
+         ((tovia:key-down-p tracker #\f)
+          (tovia:update-keystate tracker #\f :up))))))
+  (tovia:move player win))
 
 ;;;; SHADER
 ;; BACKGROUND-SHADER
@@ -88,9 +122,10 @@
         t))
     (:idle nil)
     (fude-gl:with-clear (win (:color-buffer-bit))
-      (fude-gl:with-uniforms ((tex :unit 0))
-          'background-shader
-        (setf tex (fude-gl:find-texture :earth))
-        (fude-gl:draw 'tile))
-      (tovia:move player win)
-      (fude-gl:draw player))))
+      (tovia:with-effects ()
+        (fude-gl:with-uniforms ((tex :unit 0))
+            'background-shader
+          (setf tex (fude-gl:find-texture :earth))
+          (fude-gl:draw 'tile))
+        (action player win)
+        (fude-gl:draw player)))))
