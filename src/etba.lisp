@@ -35,7 +35,7 @@
   (def :earth "backgrounds/earth.png")
   (def :romius "characters/romius.png" tovia:player)
   (def :hit "effects/hit.png")
-  (def :mashroom "characters/mashroom.png"))
+  (def :mashroom "characters/mashroom.png" tovia:4-directional))
 
 (tovia:defsprite :hit tovia:effect
   :unit 1/4
@@ -45,11 +45,10 @@
   :projection #'fude-gl:ortho)
 
 (defun attack (player win)
-  (push
-   (multiple-value-bind (x y)
-       (tovia:front player)
-     (tovia:sprite :hit win :x x :y y))
-   tovia:*effects*))
+  (tovia:add
+    (multiple-value-bind (x y)
+        (tovia:front player)
+      (tovia:sprite :hit win :x x :y y))))
 
 (defun action (player win)
   (let ((tracker (tovia:tracker player)))
@@ -113,20 +112,25 @@
 
 (defun test (win)
   (uiop:nest
-    (let ((player (tovia:sprite :romius win))
-          (mash
-           (multiple-value-bind (w h)
-               (sdl2:get-window-size win)
-             (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2))))))
+    (let ((player (tovia:add (tovia:sprite :romius win))))
+      (multiple-value-bind (w h)
+          (sdl2:get-window-size win)
+        (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
     (:idle nil)
     (fude-gl:with-clear (win (:color-buffer-bit))
-      (tovia:with-effects ()
-        (fude-gl:with-uniforms ((tex :unit 0))
-            'background-shader
-          (setf tex (fude-gl:find-texture :earth))
-          (fude-gl:draw 'tile))
-        (action player win)
-        (fude-gl:draw player)))))
+      (fude-gl:with-uniforms ((tex :unit 0))
+          'background-shader
+        (setf tex (fude-gl:find-texture :earth))
+        (fude-gl:draw 'tile))
+      (action player win)
+      (quaspar:traverse tovia:*colliders*
+                        (lambda (list)
+                          (quaspar:do-unique-pair ((a b) list)
+                            (when (tovia:collidep a b)
+                              (uiop:format! t "~%~S collides ~S" a b)))))
+      (quaspar:traverse tovia:*colliders*
+                        (lambda (list) (mapc #'fude-gl:draw list)))
+      (tovia:delete-lives))))
