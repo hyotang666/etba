@@ -48,7 +48,7 @@
   (tovia:add
     (multiple-value-bind (x y)
         (tovia:front player)
-      (tovia:sprite :hit win :x x :y y))))
+      (tovia:sprite :hit win :x x :y y :who player))))
 
 (defun action (player win)
   (let ((tracker (tovia:tracker player)))
@@ -114,6 +114,13 @@
     (text (format nil "HP: ~S" (tovia:current (tovia:life player))) :x 0 :y
      tovia:*pixel-size* :scale tovia:*pixel-size*)))
 
+(defun collision ()
+  (quaspar:traverse tovia:*colliders*
+                    (lambda (list)
+                      (quaspar:do-unique-pair ((a b) list)
+                        (when (tovia:collidep a b)
+                          (tovia:react a b))))))
+
 ;;;; TRANSITIONS
 
 (defun test (win)
@@ -135,11 +142,7 @@
         (setf tex (fude-gl:find-texture :earth))
         (fude-gl:draw 'tile))
       (action player win)
-      (quaspar:traverse tovia:*colliders*
-                        (lambda (list)
-                          (quaspar:do-unique-pair ((a b) list)
-                            (when (tovia:collidep a b)
-                              (uiop:format! t "~%~S collides ~S" a b)))))
+      (collision)
       (quaspar:traverse tovia:*colliders*
                         (lambda (list) (mapc #'fude-gl:draw list)))
       (tovia:delete-lives))
