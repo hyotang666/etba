@@ -96,7 +96,7 @@
 
 (fude-gl:defvertices tile
     (let ((w (float (* 2 (/ tovia:*width*))))
-          (h (float (* 2 (/ tovia:*height*)))))
+          (h (float (* 2 (/ (1- tovia:*height*))))))
       (coerce
         (vector 0.0 h 0.0 1.0 ; Top left
                 0.0 0.0 0.0 0.0 ; Bottom left
@@ -106,7 +106,13 @@
   :draw-mode :triangle-strip
   :shader 'background-shader
   :instances `((fude-gl:offset
-                ,(make-map-offset tovia:*width* tovia:*height*))))
+                ,(make-map-offset tovia:*width* (1- tovia:*height*)))))
+
+(defun status-bar (player win)
+  (multiple-value-call #'gl:viewport 0 0 (sdl2:get-window-size win))
+  (fude-gl:with-text-renderer (text :win win)
+    (text (format nil "HP: ~S" (tovia:current (tovia:life player))) :x 0 :y
+     tovia:*pixel-size* :scale tovia:*pixel-size*)))
 
 ;;;; TRANSITIONS
 
@@ -121,6 +127,9 @@
         t))
     (:idle nil)
     (fude-gl:with-clear (win (:color-buffer-bit))
+      (multiple-value-bind (w h)
+          (sdl2:get-window-size win)
+        (gl:viewport 0 (tovia:boxel) w (- h (tovia:boxel))))
       (fude-gl:with-uniforms ((tex :unit 0))
           'background-shader
         (setf tex (fude-gl:find-texture :earth))
@@ -133,4 +142,5 @@
                               (uiop:format! t "~%~S collides ~S" a b)))))
       (quaspar:traverse tovia:*colliders*
                         (lambda (list) (mapc #'fude-gl:draw list)))
-      (tovia:delete-lives))))
+      (tovia:delete-lives))
+    (status-bar player win)))
