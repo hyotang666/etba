@@ -37,5 +37,5 @@ Top view action.
 - [x] 敵AIの実装。
 - [ ] スタート画面とゲーム画面のシーケンス遷移実装。
   - [x] Gameover画面の作成。
-  - [ ] Clear画面の作成。
+  - [x] Clear画面の作成。
   - [ ] start画面の作成。
