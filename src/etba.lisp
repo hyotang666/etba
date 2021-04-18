@@ -11,6 +11,10 @@
 
 (setq tovia:*scene* 'test)
 
+;;;; SPECIALS
+
+(defvar *player*)
+
 ;;;; TEXTURES
 
 (defparameter *default-image-directory*
@@ -20,7 +24,7 @@
 (defun image-pathname (name)
   (truename (merge-pathnames name *default-image-directory*)))
 
-(macrolet ((def (name pathname &optional spritep)
+(macrolet ((def (name pathname &optional spritep &rest args)
              `(progn
                (fude-gl:defimage ,name (image-pathname ,pathname))
                (fude-gl:deftexture ,name :texture-2d
@@ -31,11 +35,12 @@
                    `((tovia:defsprite ,name ,spritep
                        :unit 1/8
                        :texture (fude-gl:find-texture ,name)
-                       :projection #'fude-gl:ortho))))))
+                       :projection #'fude-gl:ortho
+                       ,@args))))))
   (def :earth "backgrounds/earth.png")
   (def :romius "characters/romius.png" tovia:player)
   (def :hit "effects/hit.png")
-  (def :mashroom "characters/mashroom.png" tovia:4-directional))
+  (def :mashroom "characters/mashroom.png" tovia:4-directional :response 8))
 
 (tovia:defsprite :hit tovia:effect
   :unit 1/4
@@ -44,27 +49,34 @@
   :timer 90
   :projection #'fude-gl:ortho)
 
-(defun attack (player win)
+(defun attack (subject win)
   (tovia:add
     (multiple-value-bind (x y)
-        (tovia:front player)
-      (tovia:sprite :hit win :x x :y y :who player))))
+        (tovia:front subject)
+      (tovia:sprite :hit win :x x :y y :who subject))))
 
-(defun action (player win)
-  (let ((tracker (tovia:tracker player)))
-    (tovia:keypress-case
-      (:f
-       (if (tovia:key-down-p tracker #\f)
-           (incf (tovia:current (tovia:key-tracker-time tracker)))
-           (progn
-            (attack player win)
-            (tovia:update-keystate tracker #\f :down)
-            (setf (tovia:current (tovia:key-tracker-time tracker)) 0))))
-      (otherwise
-       (cond
-         ((tovia:key-down-p tracker #\f)
-          (tovia:update-keystate tracker #\f :up))))))
-  (tovia:move player win))
+(defgeneric action (subject window)
+  (:method (s w))
+  (:method ((s tovia:4-directional) (win sdl2-ffi:sdl-window))
+    (when (tovia:response? s)
+      (if (oddp (random 2))
+          (attack s win)
+          (tovia:move s win :direction (tovia:target-direction s *player*)))))
+  (:method ((player tovia:player) (win sdl2-ffi:sdl-window))
+    (let ((tracker (tovia:tracker player)))
+      (tovia:keypress-case
+        (:f
+         (if (tovia:key-down-p tracker #\f)
+             (incf (tovia:current (tovia:key-tracker-time tracker)))
+             (progn
+              (attack player win)
+              (tovia:update-keystate tracker #\f :down)
+              (setf (tovia:current (tovia:key-tracker-time tracker)) 0))))
+        (otherwise
+         (cond
+           ((tovia:key-down-p tracker #\f)
+            (tovia:update-keystate tracker #\f :up))))))
+    (tovia:move player win)))
 
 ;;;; SHADER
 ;; BACKGROUND-SHADER
@@ -125,10 +137,11 @@
 
 (defun test (win)
   (uiop:nest
-    (let ((player (tovia:add (tovia:sprite :romius win))))
-      (multiple-value-bind (w h)
-          (sdl2:get-window-size win)
-        (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))))
+    (progn
+     (setf *player* (tovia:add (tovia:sprite :romius win)))
+     (multiple-value-bind (w h)
+         (sdl2:get-window-size win)
+       (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
@@ -141,9 +154,10 @@
           'background-shader
         (setf tex (fude-gl:find-texture :earth))
         (fude-gl:draw 'tile))
-      (action player win)
+      (quaspar:do-lqtree (o tovia:*colliders*)
+        (action o win))
       (collision)
       (quaspar:traverse tovia:*colliders*
                         (lambda (list) (mapc #'fude-gl:draw list)))
-      (tovia:delete-lives))
-    (status-bar player win)))
+      (tovia:delete-lives)
+      (status-bar *player* win))))
