@@ -1,4 +1,4 @@
-# ETBA 0.0.0
+# ETBA 1.0.0
 ## What is this?
 Top view action.
 
@@ -35,7 +35,7 @@ Top view action.
   - [x] HPの実装。
   - [x] プレイヤーステータスバー実装。
 - [x] 敵AIの実装。
-- [ ] スタート画面とゲーム画面のシーケンス遷移実装。
+- [x] スタート画面とゲーム画面のシーケンス遷移実装。
   - [x] Gameover画面の作成。
   - [x] Clear画面の作成。
-  - [ ] start画面の作成。
+  - [x] start画面の作成。

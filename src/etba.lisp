@@ -9,7 +9,7 @@
 
 (setq tovia:*title* "Eternal Battle")
 
-(setq tovia:*scene* 'test)
+(setq tovia:*scene* 'start)
 
 ;;;; SPECIALS
 
@@ -178,11 +178,11 @@
         (:quit ()
           t)
         (:keydown ()
-          (signal 'tovia:sequence-transition :next #'test))
+          (signal 'tovia:sequence-transition :next #'start))
         (:idle ()
           (when init
             (text "Game over" :x :center :y :center :scale tovia:*pixel-size*)
-            (text "Push any key to retry." :x :center :y (* 3 (tovia:boxel)))
+            (text "Push any key." :x :center :y (* 3 (tovia:boxel)))
             (sdl2:gl-swap-window win)
             (setq init nil))
           (sleep 0.5))))))
@@ -194,11 +194,23 @@
         (:quit ()
           t)
         (:keydown ()
-          (signal 'tovia:sequence-transition :next #'test))
+          (signal 'tovia:sequence-transition :next #'start))
         (:idle ()
           (when init
             (text "You win!" :x :center :y :center :scale tovia:*pixel-size*)
-            (text "Push any key to replay." :x :center :y (* 3 (tovia:boxel)))
+            (text "Push any key." :x :center :y (* 3 (tovia:boxel)))
             (sdl2:gl-swap-window win)
             (setq init nil))
           (sleep 0.5))))))
+
+(defun start (win)
+  (fude-gl:with-text-renderer (text :win win)
+    (sdl2:with-event-loop (:method :poll)
+      (:quit ()
+        t)
+      (:keydown ()
+        (signal 'tovia:sequence-transition :next #'test))
+      (:idle ()
+        (fude-gl:with-clear (win (:color-buffer-bit))
+          (text "ETBA" :x :center :y :center :scale tovia:*pixel-size*)
+          (text "Push any key to play." :x :center :y (* 3 (tovia:boxel))))))))
