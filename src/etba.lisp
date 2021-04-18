@@ -75,8 +75,8 @@
         (otherwise
          (cond
            ((tovia:key-down-p tracker #\f)
-            (tovia:update-keystate tracker #\f :up))))))
-    (tovia:move player win)))
+            (tovia:update-keystate tracker #\f :up)))
+         (tovia:move player win))))))
 
 ;;;; SHADER
 ;; BACKGROUND-SHADER
