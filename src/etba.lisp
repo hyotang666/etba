@@ -47,7 +47,8 @@
   :texture (fude-gl:find-texture :hit)
   :stepper (alexandria:circular-list '(0 3) '(1 3) '(2 3) nil)
   :timer 90
-  :projection #'fude-gl:ortho)
+  :projection #'fude-gl:ortho
+  :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
 
 (defun attack (subject win)
   (tovia:add
