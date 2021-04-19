@@ -40,7 +40,7 @@
   (def :earth "backgrounds/earth.png")
   (def :romius "characters/romius.png" tovia:player)
   (def :hit "effects/hit.png")
-  (def :mashroom "characters/mashroom.png" tovia:4-directional :response 8))
+  (def :mashroom "characters/mashroom.png" tovia:npc :response 8))
 
 (tovia:defsprite :hit tovia:effect
   :unit 1/4
@@ -58,7 +58,7 @@
 
 (defgeneric action (subject window)
   (:method (s w))
-  (:method ((s tovia:4-directional) (win sdl2-ffi:sdl-window))
+  (:method ((s tovia:npc) (win sdl2-ffi:sdl-window))
     (when (tovia:response? s)
       (if (oddp (random 2))
           (attack s win)
