@@ -80,18 +80,26 @@
       (tovia:keypress-case
         (:f
          (if (tovia:key-down-p tracker :f)
-             (incf (tovia:current (tovia:key-tracker-time tracker)))
+             (progn
+              (incf (tovia:current (tovia:key-tracker-time tracker)))
+              (tovia:move player win))
              (progn
               (attack player win :hit)
               (setf (tovia:keystate tracker :f) :down
-                    (tovia:current (tovia:key-tracker-time tracker)) 0))))
+                    (tovia:current (tovia:key-tracker-time tracker))
+                      (1- (tovia:current (tovia:key-tracker-time tracker)))
+                    (tovia:move-coeff player)
+                      (acons :charging (lambda (x) (round x 2))
+                             (tovia:move-coeff player))))))
         (otherwise
          (cond
            ((tovia:key-down-p tracker :f)
-            (setf (tovia:keystate tracker :f) :up)
+            (setf (tovia:keystate tracker :f) :up
+                  (tovia:move-coeff player)
+                    (delete :charging (tovia:move-coeff player) :key #'car))
             (let ((time (tovia:current (tovia:key-tracker-time tracker))))
               (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
-              (when (< 0 time)
+              (when (< 10 time)
                 (attack player win :energy :life time)))))
          (tovia:move player win))))))
 
