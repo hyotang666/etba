@@ -67,16 +67,16 @@
     (let ((tracker (tovia:tracker player)))
       (tovia:keypress-case
         (:f
-         (if (tovia:key-down-p tracker #\f)
+         (if (tovia:key-down-p tracker :f)
              (incf (tovia:current (tovia:key-tracker-time tracker)))
              (progn
               (attack player win)
-              (tovia:update-keystate tracker #\f :down)
-              (setf (tovia:current (tovia:key-tracker-time tracker)) 0))))
+              (setf (tovia:keystate tracker :f) :down
+                    (tovia:current (tovia:key-tracker-time tracker)) 0))))
         (otherwise
          (cond
-           ((tovia:key-down-p tracker #\f)
-            (tovia:update-keystate tracker #\f :up)))
+           ((tovia:key-down-p tracker :f)
+            (setf (tovia:keystate tracker :f) :up)))
          (tovia:move player win))))))
 
 ;;;; SHADER
