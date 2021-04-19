@@ -40,9 +40,10 @@
   (def :earth "backgrounds/earth.png")
   (def :romius "characters/romius.png" tovia:player)
   (def :hit "effects/hit.png")
+  (def :energy "effects/energy.png")
   (def :mashroom "characters/mashroom.png" tovia:npc :response 8))
 
-(tovia:defsprite :hit tovia:effect
+(tovia:defsprite :hit tovia:melee
   :unit 1/4
   :texture (fude-gl:find-texture :hit)
   :stepper (alexandria:circular-list '(0 3) '(1 3) '(2 3) nil)
@@ -50,18 +51,29 @@
   :projection #'fude-gl:ortho
   :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
 
-(defun attack (subject win)
+(tovia:defsprite :energy tovia:projectile
+  :unit 1/8
+  :texture (fude-gl:find-texture :energy)
+  :timer 90
+  :projection #'fude-gl:ortho
+  :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
+
+(defun attack (subject win attack &rest args)
   (tovia:add
     (multiple-value-bind (x y)
         (tovia:front subject)
-      (tovia:sprite :hit win :x x :y y :who subject))))
+      (apply #'tovia:sprite attack win :x x :y y :who subject :direction
+             (tovia:last-direction subject) :allow-other-keys t args))))
 
 (defgeneric action (subject window)
   (:method (s w))
+  (:method ((s tovia:projectile) (win sdl2-ffi:sdl-window))
+    (decf (tovia:current (tovia:life s)))
+    (tovia:move s win))
   (:method ((s tovia:npc) (win sdl2-ffi:sdl-window))
     (when (tovia:response? s)
       (if (oddp (random 2))
-          (attack s win)
+          (attack s win :hit)
           (tovia:move s win :direction (tovia:target-direction s *player*)))))
   (:method ((player tovia:player) (win sdl2-ffi:sdl-window))
     (let ((tracker (tovia:tracker player)))
@@ -70,13 +82,17 @@
          (if (tovia:key-down-p tracker :f)
              (incf (tovia:current (tovia:key-tracker-time tracker)))
              (progn
-              (attack player win)
+              (attack player win :hit)
               (setf (tovia:keystate tracker :f) :down
                     (tovia:current (tovia:key-tracker-time tracker)) 0))))
         (otherwise
          (cond
            ((tovia:key-down-p tracker :f)
-            (setf (tovia:keystate tracker :f) :up)))
+            (setf (tovia:keystate tracker :f) :up)
+            (let ((time (tovia:current (tovia:key-tracker-time tracker))))
+              (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
+              (when (< 0 time)
+                (attack player win :energy :life time)))))
          (tovia:move player win))))))
 
 ;;;; SHADER
