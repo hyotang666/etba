@@ -91,46 +91,58 @@
   (:method ((s tovia:npc) (win sdl2-ffi:sdl-window))
     (if (oddp (random 2))
         (attack s win :hit)
-        (tovia:move s win :direction (tovia:target-direction s *player*))))
-  (:method ((player tovia:player) (win sdl2-ffi:sdl-window))
-    (let ((tracker (tovia:tracker player)))
-      (tovia:keypress-case
-        (:f
-         (if (tovia:key-down-p tracker :f)
-             (progn ; Keep on pressing.
-              (incf (tovia:current (tovia:key-tracker-time tracker)))
-              (decf (tovia:current (tovia:key-tracker-command-life tracker)))
-              (tovia:move player win))
-             (progn ; First time to press.
-              (setf (tovia:keystate tracker :f) :down
-                    (tovia:current (tovia:key-tracker-command-life tracker)) 10
-                    (tovia:current (tovia:key-tracker-time tracker))
-                      (1- (tovia:current (tovia:key-tracker-time tracker)))
-                    (tovia:coeff-of :move player)
-                      (acons :charging (lambda (x) (round x 2))
-                             (tovia:coeff-of :move player)))
-              (if (tovia:command-input-p '(:f :f :f) tracker)
-                  (progn
-                   (setf (tovia:coeff-of :response player)
-                           (acons :stun (constantly nil)
-                                  (tovia:coeff-of :response player)))
-                   (attack player win :barrage))
-                  (attack player win :hit)))))
-        (otherwise
-         (if (<= 0 (tovia:current (tovia:key-tracker-command-life tracker)))
-             (decf (tovia:current (tovia:key-tracker-command-life tracker)))
-             (setf (tovia:last-pressed tracker) nil))
-         (cond
-           ((tovia:key-down-p tracker :f)
-            (setf (tovia:keystate tracker :f) :up
+        (tovia:move s win :direction (tovia:target-direction s *player*)))))
+
+(defmethod action ((player tovia:player) (win sdl2-ffi:sdl-window))
+  (let ((tracker (tovia:tracker player)))
+    (tovia:keypress-case
+      (:f
+       (if (tovia:key-down-p tracker :f)
+           (progn ; Keep on pressing.
+            (incf (tovia:current (tovia:key-tracker-time tracker)))
+            (decf (tovia:current (tovia:key-tracker-command-life tracker)))
+            (tovia:move player win))
+           (progn ; First time to press.
+            (setf (tovia:current (tovia:key-tracker-command-life tracker)) 10
+                  (tovia:current (tovia:key-tracker-time tracker))
+                    (1- (tovia:current (tovia:key-tracker-time tracker)))
                   (tovia:coeff-of :move player)
-                    (delete :charging (tovia:coeff-of :move player)
-                            :key #'car))
-            (let ((time (tovia:current (tovia:key-tracker-time tracker))))
-              (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
-              (when (< 10 time)
-                (attack player win :energy :life time)))))
-         (tovia:move player win))))))
+                    (acons :charging (lambda (x) (round x 2))
+                           (tovia:coeff-of :move player)))
+            (cond
+              ((tovia:command-input-p '(:f :f :f) tracker
+                                      #.(* 0.2 internal-time-units-per-second))
+               (setf (tovia:coeff-of :response player)
+                       (acons :stun (constantly nil)
+                              (tovia:coeff-of :response player)))
+               (attack player win :barrage))
+              ((tovia:command-input-p '(:f :f) tracker
+                                      #.(* 0.4 internal-time-units-per-second)
+                                      :only-press t)
+               (setf (tovia:coeff-of :move player)
+                       (acons :step-in (constantly (/ (tovia:boxel) 2))
+                              (tovia:coeff-of :move player)))
+               (tovia:move player win :direction (tovia:last-direction player))
+               (setf (tovia:coeff-of :move player)
+                       (delete :step-in (tovia:coeff-of :move player)
+                               :key #'car))
+               (attack player win :hit))
+              (t (attack player win :hit)))
+            (setf (tovia:keystate tracker :f) :down))))
+      (otherwise
+       (if (<= (tovia:current (tovia:key-tracker-command-life tracker)) 0)
+           (setf (tovia:last-pressed tracker) nil)
+           (decf (tovia:current (tovia:key-tracker-command-life tracker))))
+       (cond
+         ((tovia:key-down-p tracker :f)
+          (setf (tovia:keystate tracker :f) :up
+                (tovia:coeff-of :move player)
+                  (delete :charging (tovia:coeff-of :move player) :key #'car))
+          (let ((time (tovia:current (tovia:key-tracker-time tracker))))
+            (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
+            (when (< 10 time)
+              (attack player win :energy :life time)))))
+       (tovia:move player win)))))
 
 ;;;; SHADER
 ;; BACKGROUND-SHADER
