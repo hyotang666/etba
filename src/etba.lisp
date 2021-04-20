@@ -41,9 +41,10 @@
   (def :romius "characters/romius.png" tovia:player)
   (def :hit "effects/hit.png")
   (def :energy "effects/energy.png")
+  (def :barrage "effects/barrage.png")
   (def :mashroom "characters/mashroom.png" tovia:npc :response 8))
 
-(tovia:defsprite :hit tovia:melee
+(tovia:defsprite :hit tovia:effect
   :unit 1/4
   :texture (fude-gl:find-texture :hit)
   :stepper (alexandria:circular-list '(0 3) '(1 3) '(2 3) nil)
@@ -58,6 +59,15 @@
   :projection #'fude-gl:ortho
   :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
 
+(tovia:defsprite :barrage tovia:melee
+  :unit 1/8
+  :texture (fude-gl:find-texture :barrage)
+  :stepper (alexandria:circular-list 0 1 2)
+  :time 180
+  :projection #'fude-gl:ortho
+  :life 40
+  :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
+
 (defun attack (subject win attack &rest args)
   (tovia:add
     (multiple-value-bind (x y)
@@ -67,36 +77,55 @@
 
 (defgeneric action (subject window)
   (:method (s w))
+  (:method ((s tovia:melee) (win sdl2-ffi:sdl-window))
+    (when (<= (decf (tovia:current (tovia:life s))) 0)
+      (setf (tovia:coeff-of :response (tovia:who s))
+              (delete :stun (tovia:coeff-of :response (tovia:who s))
+                      :key #'car))))
   (:method ((s tovia:projectile) (win sdl2-ffi:sdl-window))
     (decf (tovia:current (tovia:life s)))
     (tovia:move s win))
+  (:method :around ((s tovia:being) (win sdl2-ffi:sdl-window))
+    (when (tovia:apply-coeff (tovia:response? s) (tovia:coeff-of :response s))
+      (call-next-method)))
   (:method ((s tovia:npc) (win sdl2-ffi:sdl-window))
-    (when (tovia:response? s)
-      (if (oddp (random 2))
-          (attack s win :hit)
-          (tovia:move s win :direction (tovia:target-direction s *player*)))))
+    (if (oddp (random 2))
+        (attack s win :hit)
+        (tovia:move s win :direction (tovia:target-direction s *player*))))
   (:method ((player tovia:player) (win sdl2-ffi:sdl-window))
     (let ((tracker (tovia:tracker player)))
       (tovia:keypress-case
         (:f
          (if (tovia:key-down-p tracker :f)
-             (progn
+             (progn ; Keep on pressing.
               (incf (tovia:current (tovia:key-tracker-time tracker)))
+              (decf (tovia:current (tovia:key-tracker-command-life tracker)))
               (tovia:move player win))
-             (progn
-              (attack player win :hit)
+             (progn ; First time to press.
               (setf (tovia:keystate tracker :f) :down
+                    (tovia:current (tovia:key-tracker-command-life tracker)) 10
                     (tovia:current (tovia:key-tracker-time tracker))
                       (1- (tovia:current (tovia:key-tracker-time tracker)))
-                    (tovia:move-coeff player)
+                    (tovia:coeff-of :move player)
                       (acons :charging (lambda (x) (round x 2))
-                             (tovia:move-coeff player))))))
+                             (tovia:coeff-of :move player)))
+              (if (tovia:command-input-p '(:f :f :f) tracker)
+                  (progn
+                   (setf (tovia:coeff-of :response player)
+                           (acons :stun (constantly nil)
+                                  (tovia:coeff-of :response player)))
+                   (attack player win :barrage))
+                  (attack player win :hit)))))
         (otherwise
+         (if (<= 0 (tovia:current (tovia:key-tracker-command-life tracker)))
+             (decf (tovia:current (tovia:key-tracker-command-life tracker)))
+             (setf (tovia:last-pressed tracker) nil))
          (cond
            ((tovia:key-down-p tracker :f)
             (setf (tovia:keystate tracker :f) :up
-                  (tovia:move-coeff player)
-                    (delete :charging (tovia:move-coeff player) :key #'car))
+                  (tovia:coeff-of :move player)
+                    (delete :charging (tovia:coeff-of :move player)
+                            :key #'car))
             (let ((time (tovia:current (tovia:key-tracker-time tracker))))
               (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
               (when (< 10 time)
