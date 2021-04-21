@@ -68,12 +68,38 @@
   :life 40
   :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
 
-(defun attack (subject win attack &rest args)
-  (tovia:add
-    (multiple-value-bind (x y)
-        (tovia:front subject)
-      (apply #'tovia:sprite attack win :x x :y y :who subject :direction
-             (tovia:last-direction subject) :allow-other-keys t args))))
+(defgeneric attack (subject win arm &rest args)
+  (:method ((subject tovia:being) (win sdl2-ffi:sdl-window) arm &rest args)
+    (tovia:add
+      (multiple-value-bind (x y)
+          (tovia:front subject)
+        (apply #'tovia:sprite arm win :x x :y y :who subject :direction
+               (tovia:last-direction subject) :allow-other-keys t args))))
+  (:method :before ((subject tovia:being) (win sdl2-ffi:sdl-window)
+                    (arm (eql :barrage)) &rest args)
+    (declare (ignore args))
+    (setf (tovia:coeff-of :response subject)
+            (acons :stun (constantly nil) (tovia:coeff-of :response subject))))
+  (:method :before ((subject tovia:being) (win sdl2-ffi:sdl-window)
+                    (arm (eql :step-in-hit)) &rest args)
+    (declare (ignore args))
+    (setf (tovia:coeff-of :move subject)
+            (acons :step-in (constantly (/ (tovia:boxel) 2))
+                   (tovia:coeff-of :move subject)))
+    (tovia:move subject win :direction (tovia:last-direction subject))
+    (setf (tovia:coeff-of :move subject)
+            (delete :step-in (tovia:coeff-of :move subject) :key #'car)))
+  (:method ((subject tovia:being) (win sdl2-ffi:sdl-window)
+            (arm (eql :step-in-hit)) &rest args)
+    (apply #'call-next-method subject win :hit args))
+  (:method :around ((subject tovia:player) (win sdl2-ffi:sdl-window)
+                    (arm (eql :energy)) &rest args)
+    (declare (ignore args))
+    (let* ((tracker (tovia:tracker subject))
+           (time (tovia:current (tovia:key-tracker-time tracker))))
+      (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
+      (when (< 10 time)
+        (call-next-method subject win :energy :life time)))))
 
 (defgeneric action (subject window)
   (:method (s w))
@@ -112,20 +138,10 @@
             (cond
               ((tovia:command-input-p '(:f :f :f) tracker
                                       (tovia:discrete-time 0 0.2))
-               (setf (tovia:coeff-of :response player)
-                       (acons :stun (constantly nil)
-                              (tovia:coeff-of :response player)))
                (attack player win :barrage))
               ((tovia:command-input-p '(:f :f) tracker
                                       (tovia:discrete-time 0.3 0.4))
-               (setf (tovia:coeff-of :move player)
-                       (acons :step-in (constantly (/ (tovia:boxel) 2))
-                              (tovia:coeff-of :move player)))
-               (tovia:move player win :direction (tovia:last-direction player))
-               (setf (tovia:coeff-of :move player)
-                       (delete :step-in (tovia:coeff-of :move player)
-                               :key #'car))
-               (attack player win :hit))
+               (attack player win :step-in-hit))
               (t (attack player win :hit)))
             (setf (tovia:keystate tracker :f) :down))))
       (otherwise
@@ -135,10 +151,7 @@
           (setf (tovia:keystate tracker :f) :up
                 (tovia:coeff-of :move player)
                   (delete :charging (tovia:coeff-of :move player) :key #'car))
-          (let ((time (tovia:current (tovia:key-tracker-time tracker))))
-            (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
-            (when (< 10 time)
-              (attack player win :energy :life time)))))
+          (attack player win :energy)))
        (tovia:move player win)))))
 
 ;;;; SHADER
