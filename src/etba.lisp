@@ -198,9 +198,12 @@
 
 (defun status-bar (player win)
   (multiple-value-call #'gl:viewport 0 0 (sdl2:get-window-size win))
-  (fude-gl:with-text-renderer (text :win win)
-    (text (format nil "HP: ~S" (tovia:current (tovia:life player))) :x 0 :y
-     tovia:*pixel-size* :scale tovia:*pixel-size*)))
+  (fude-gl:render-text
+    (format nil "HP: ~S" (tovia:current (tovia:life player)))
+    :x 0
+    :y tovia:*pixel-size*
+    :scale tovia:*pixel-size*
+    :win win))
 
 (defun collision ()
   (quaspar:traverse tovia:*colliders*
@@ -218,6 +221,7 @@
      (multiple-value-bind (w h)
          (sdl2:get-window-size win)
        (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))))
+    (fude-gl:with-text (win))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
@@ -248,7 +252,7 @@
           (return nil))))))
 
 (defun game-over (win)
-  (fude-gl:with-text-renderer (text :win win)
+  (fude-gl:with-text (win)
     (let ((init t))
       (sdl2:with-event-loop (:method :poll)
         (:quit ()
@@ -257,14 +261,21 @@
           (signal 'tovia:sequence-transition :next #'start))
         (:idle ()
           (when init
-            (text "Game over" :x :center :y :center :scale tovia:*pixel-size*)
-            (text "Push any key." :x :center :y (* 3 (tovia:boxel)))
+            (fude-gl:render-text "Game over"
+                                 :x :center
+                                 :y :center
+                                 :scale tovia:*pixel-size*
+                                 :win win)
+            (fude-gl:render-text "Push any key."
+                                 :x :center
+                                 :y (* 3 (tovia:boxel))
+                                 :win win)
             (sdl2:gl-swap-window win)
             (setq init nil))
           (sleep 0.5))))))
 
 (defun congratulations (win)
-  (fude-gl:with-text-renderer (text :win win)
+  (fude-gl:with-text (win)
     (let ((init t))
       (sdl2:with-event-loop (:method :poll)
         (:quit ()
@@ -273,14 +284,21 @@
           (signal 'tovia:sequence-transition :next #'start))
         (:idle ()
           (when init
-            (text "You win!" :x :center :y :center :scale tovia:*pixel-size*)
-            (text "Push any key." :x :center :y (* 3 (tovia:boxel)))
+            (fude-gl:render-text "You win!"
+                                 :x :center
+                                 :y :center
+                                 :scale tovia:*pixel-size*
+                                 :win win)
+            (fude-gl:render-text "Push any key."
+                                 :x :center
+                                 :y (* 3 (tovia:boxel))
+                                 :win win)
             (sdl2:gl-swap-window win)
             (setq init nil))
           (sleep 0.5))))))
 
 (defun start (win)
-  (fude-gl:with-text-renderer (text :win win)
+  (fude-gl:with-text (win)
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t)
@@ -288,5 +306,12 @@
         (signal 'tovia:sequence-transition :next #'test))
       (:idle ()
         (fude-gl:with-clear (win (:color-buffer-bit))
-          (text "ETBA" :x :center :y :center :scale tovia:*pixel-size*)
-          (text "Push any key to play." :x :center :y (* 3 (tovia:boxel))))))))
+          (fude-gl:render-text "ETBA"
+                               :x :center
+                               :y :center
+                               :scale tovia:*pixel-size*
+                               :win win)
+          (fude-gl:render-text "Push any key to play."
+                               :x :center
+                               :y (* 3 (tovia:boxel))
+                               :win win))))))
