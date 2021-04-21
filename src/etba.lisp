@@ -111,14 +111,22 @@
                            (tovia:coeff-of :move player)))
             (cond
               ((tovia:command-input-p '(:f :f :f) tracker
-                                      #.(* 0.2 internal-time-units-per-second))
+                                      (lambda (delta)
+                                        (< 0 delta
+                                           #.(* 0.2
+                                                internal-time-units-per-second))))
                (setf (tovia:coeff-of :response player)
                        (acons :stun (constantly nil)
                               (tovia:coeff-of :response player)))
                (attack player win :barrage))
               ((tovia:command-input-p '(:f :f) tracker
-                                      #.(* 0.4 internal-time-units-per-second)
-                                      :only-press t)
+                                      (lambda (delta)
+                                        (<
+                                          #.(* 0.3
+                                               internal-time-units-per-second)
+                                          delta
+                                          #.(* 0.4
+                                               internal-time-units-per-second))))
                (setf (tovia:coeff-of :move player)
                        (acons :step-in (constantly (/ (tovia:boxel) 2))
                               (tovia:coeff-of :move player)))
@@ -130,9 +138,7 @@
               (t (attack player win :hit)))
             (setf (tovia:keystate tracker :f) :down))))
       (otherwise
-       (if (<= (tovia:current (tovia:key-tracker-command-life tracker)) 0)
-           (setf (tovia:last-pressed tracker) nil)
-           (decf (tovia:current (tovia:key-tracker-command-life tracker))))
+       (decf (tovia:current (tovia:key-tracker-command-life tracker)))
        (cond
          ((tovia:key-down-p tracker :f)
           (setf (tovia:keystate tracker :f) :up
