@@ -126,11 +126,9 @@
        (if (tovia:key-down-p tracker :f)
            (progn ; Keep on pressing.
             (incf (tovia:current (tovia:key-tracker-time tracker)))
-            (decf (tovia:current (tovia:key-tracker-command-life tracker)))
             (tovia:move player win))
            (progn ; First time to press.
-            (setf (tovia:current (tovia:key-tracker-command-life tracker)) 10
-                  (tovia:current (tovia:key-tracker-time tracker))
+            (setf (tovia:current (tovia:key-tracker-time tracker))
                     (1- (tovia:current (tovia:key-tracker-time tracker)))
                   (tovia:coeff-of :move player)
                     (acons :charging (lambda (x) (round x 2))
@@ -145,7 +143,6 @@
               (t (attack player win :hit)))
             (setf (tovia:keystate tracker :f) :down))))
       (otherwise
-       (decf (tovia:current (tovia:key-tracker-command-life tracker)))
        (cond
          ((tovia:key-down-p tracker :f)
           (setf (tovia:keystate tracker :f) :up
