@@ -111,22 +111,13 @@
                            (tovia:coeff-of :move player)))
             (cond
               ((tovia:command-input-p '(:f :f :f) tracker
-                                      (lambda (delta)
-                                        (< 0 delta
-                                           #.(* 0.2
-                                                internal-time-units-per-second))))
+                                      (tovia:discrete-time 0 0.2))
                (setf (tovia:coeff-of :response player)
                        (acons :stun (constantly nil)
                               (tovia:coeff-of :response player)))
                (attack player win :barrage))
               ((tovia:command-input-p '(:f :f) tracker
-                                      (lambda (delta)
-                                        (<
-                                          #.(* 0.3
-                                               internal-time-units-per-second)
-                                          delta
-                                          #.(* 0.4
-                                               internal-time-units-per-second))))
+                                      (tovia:discrete-time 0.3 0.4))
                (setf (tovia:coeff-of :move player)
                        (acons :step-in (constantly (/ (tovia:boxel) 2))
                               (tovia:coeff-of :move player)))
