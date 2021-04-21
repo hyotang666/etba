@@ -63,7 +63,7 @@
   :unit 1/8
   :texture (fude-gl:find-texture :barrage)
   :stepper (alexandria:circular-list 0 1 2)
-  :time 180
+  :timer 180
   :projection #'fude-gl:ortho
   :life 40
   :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
