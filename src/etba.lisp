@@ -230,14 +230,19 @@
   :instances `((fude-gl:offset
                 ,(make-map-offset tovia:*width* (1- tovia:*height*)))))
 
-(defun status-bar (player win)
-  (multiple-value-call #'gl:viewport 0 0 (sdl2:get-window-size win))
-  (fude-gl:render-text
-    (format nil "HP: ~S" (tovia:current (tovia:life player)))
-    :x 0
-    :y tovia:*pixel-size*
-    :scale tovia:*pixel-size*
-    :win win))
+(let ((string
+       (make-array 10 ; HP must 6 length.
+                   :element-type 'character
+                   :initial-element #\Nul
+                   :fill-pointer t)))
+  (defun status-bar (player win)
+    (multiple-value-call #'gl:viewport 0 0 (sdl2:get-window-size win))
+    (setf (fill-pointer string) 0)
+    (format string (formatter "HP: ~S") (tovia:current (tovia:life player)))
+    (fude-gl:render-text string
+                         :x 0
+                         :y tovia:*pixel-size*
+                         :scale tovia:*pixel-size*)))
 
 (defun collision ()
   (quaspar:traverse tovia:*colliders*
