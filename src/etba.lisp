@@ -15,6 +15,24 @@
 
 (defvar *player*)
 
+;;;; SOUNDS
+
+(defparameter *default-sounds-directory*
+  (merge-pathnames "resources/sounds/"
+                   (asdf:system-source-directory (asdf:find-system :etba))))
+
+(defun sound-pathname (name)
+  (truename (merge-pathnames name *default-sounds-directory*)))
+
+(macrolet ((def (name pathname)
+             `(tovia:defsound ,name (sound-pathname ,pathname))))
+  (def :swing-light "swing-light.wav")
+  (def :swing-barrage "swing-barrage.wav")
+  (def :swing-heavy "swing-heavy.wav")
+  (def :hit "hit1.wav")
+  (def :projectile "projectile.wav")
+  (def :dash "dash.wav"))
+
 ;;;; TEXTURES
 
 (defparameter *default-image-directory*
@@ -78,11 +96,13 @@
   (:method :before ((subject tovia:being) (win sdl2-ffi:sdl-window)
                     (arm (eql :barrage)) &rest args)
     (declare (ignore args))
+    (tovia:play :swing-barrage)
     (setf (tovia:coeff-of :response subject)
             (acons :stun (constantly nil) (tovia:coeff-of :response subject))))
   (:method :before ((subject tovia:being) (win sdl2-ffi:sdl-window)
                     (arm (eql :step-in-hit)) &rest args)
     (declare (ignore args))
+    (tovia:play :swing-heavy)
     (setf (tovia:coeff-of :move subject)
             (acons :step-in (constantly (/ (tovia:boxel) 2))
                    (tovia:coeff-of :move subject)))
@@ -92,6 +112,10 @@
   (:method ((subject tovia:being) (win sdl2-ffi:sdl-window)
             (arm (eql :step-in-hit)) &rest args)
     (apply #'call-next-method subject win :hit args))
+  (:method :before ((subject tovia:being) (win sdl2-ffi:sdl-window)
+                    (arm (eql :energy)) &rest args)
+    (declare (ignore args))
+    (tovia:play :projectile))
   (:method :around ((subject tovia:player) (win sdl2-ffi:sdl-window)
                     (arm (eql :energy)) &rest args)
     (declare (ignore args))
@@ -99,7 +123,11 @@
            (time (tovia:current (tovia:key-tracker-time tracker))))
       (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
       (when (< 10 time)
-        (call-next-method subject win :energy :life time)))))
+        (call-next-method subject win :energy :life time))))
+  (:method :before ((subject tovia:being) (win sdl2-ffi:sdl-window)
+                    (arm (eql :hit)) &rest args)
+    (declare (ignore args))
+    (tovia:play :swing-light)))
 
 (defgeneric action (subject window)
   (:method (s w))
@@ -153,6 +181,12 @@
                   (delete :charging (tovia:coeff-of :move player) :key #'car))
           (attack player win :energy)))
        (tovia:move player win)))))
+
+(defmethod tovia:move :around ((o tovia:player) (win sdl2-ffi:sdl-window) &key)
+  (let ((dash? (assoc :dush (tovia:coeff-of :move o))))
+    (call-next-method)
+    (when (and (null dash?) (assoc :dush (tovia:coeff-of :move o)))
+      (tovia:play :dash))))
 
 ;;;; SHADER
 ;; BACKGROUND-SHADER
@@ -211,6 +245,9 @@
                       (quaspar:do-unique-pair ((a b) list)
                         (when (tovia:collidep a b)
                           (tovia:react a b))))))
+
+(defmethod tovia:react :before ((s tovia:phenomenon) (o tovia:being))
+  (tovia:play :hit))
 
 ;;;; TRANSITIONS
 
