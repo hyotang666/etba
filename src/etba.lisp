@@ -293,8 +293,16 @@
       (quaspar:do-lqtree (o tovia:*colliders*)
         (action o win))
       (collision)
-      (quaspar:traverse tovia:*colliders*
-                        (lambda (list) (mapc #'fude-gl:draw list)))
+      (let (effects)
+        (quaspar:traverse tovia:*colliders*
+                          (lambda (list)
+                            (dolist (elt list)
+                              (etypecase elt
+                                (tovia:player) ; do-nothing.
+                                (tovia:being (fude-gl:draw elt))
+                                (tovia:phenomenon (push elt effects))))))
+        (fude-gl:draw *player*)
+        (mapc #'fude-gl:draw effects))
       (tovia:delete-lives)
       (status-bar *player* win)
       (when (tovia:deadp *player*)
