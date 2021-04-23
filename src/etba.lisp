@@ -77,7 +77,16 @@
   :texture (fude-gl:find-texture :energy)
   :timer 90
   :projection #'fude-gl:ortho
-  :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
+  :effects (list
+             (tovia:damager 10
+                            (lambda (phenomenon victim damage)
+                              (declare (ignore victim))
+                              (round
+                                (* damage
+                                   (/ (tovia:current (tovia:life phenomenon))
+                                      (tovia:max-of
+                                        (tovia:life phenomenon)))))))
+             (tovia:knock-backer 10)))
 
 (tovia:defsprite :barrage tovia:melee
   :unit 1/8
