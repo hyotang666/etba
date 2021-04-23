@@ -42,6 +42,8 @@
 (defun image-pathname (name)
   (truename (merge-pathnames name *default-image-directory*)))
 
+(defclass mashroom (tovia:npc) ())
+
 (macrolet ((def (name pathname &optional spritep &rest args)
              `(progn
                (fude-gl:defimage ,name (image-pathname ,pathname))
@@ -60,7 +62,7 @@
   (def :hit "effects/hit.png")
   (def :energy "effects/energy.png")
   (def :barrage "effects/barrage.png")
-  (def :mashroom "characters/mashroom.png" tovia:npc :response 8))
+  (def :mashroom "characters/mashroom.png" mashroom :response 8))
 
 (tovia:defsprite :hit tovia:effect
   :unit 1/4
@@ -148,7 +150,10 @@
       (1 (attack s win :barrage))
       (2 (attack s win :energy))
       ((3 4 5 6 7 8 9)
-       (tovia:move s win :direction (tovia:target-direction s *player*))))))
+       (tovia:move s win :direction (tovia:target-direction s *player*)))))
+  (:method ((s mashroom) (win sdl2-ffi:sdl-window))
+    (setf (tovia:last-direction s)
+            (aref #(:s :n :w :e :nw :ne :sw :se) (random 8)))))
 
 (defmethod action ((player tovia:player) (win sdl2-ffi:sdl-window))
   (let ((tracker (tovia:tracker player)))
