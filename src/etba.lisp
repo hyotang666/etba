@@ -70,7 +70,15 @@
   :stepper (alexandria:circular-list '(0 3) '(1 3) '(2 3) nil)
   :timer 90
   :projection #'fude-gl:ortho
-  :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
+  :effects (list
+             (tovia:damager 10
+                            (lambda (phenomenon victim damage)
+                              (declare (ignore victim))
+                              (if (assoc :step-in (tovia:coeff-of :move (tovia:who
+                                                                          phenomenon)))
+                                  (round damage 2/3)
+                                  damage)))
+             (tovia:knock-backer 10)))
 
 (tovia:defsprite :energy tovia:projectile
   :unit 1/8
