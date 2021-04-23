@@ -44,6 +44,17 @@
 
 (defclass mashroom (tovia:npc) ())
 
+(defparameter *damage* nil)
+
+(defclass damage ()
+  ((x :initarg :x :reader x)
+   (y :initarg :y :accessor y)
+   (life :initarg :life :reader tovia:life :type tovia:parameter)
+   (damage :initarg :damage :reader damage :type string)))
+
+(defmethod initialize-instance :after ((o damage) &key (life 20))
+  (setf (slot-value o 'life) (tovia:make-parameter life)))
+
 (macrolet ((def (name pathname &optional spritep &rest args)
              `(progn
                (fude-gl:defimage ,name (image-pathname ,pathname))
@@ -73,11 +84,19 @@
   :effects (list
              (tovia:damager 10
                             (lambda (phenomenon victim damage)
-                              (declare (ignore victim))
-                              (if (assoc :step-in (tovia:coeff-of :move (tovia:who
-                                                                          phenomenon)))
-                                  (round damage 2/3)
-                                  damage)))
+                              (let ((damage
+                                     (if (assoc :step-in (tovia:coeff-of :move (tovia:who
+                                                                                 phenomenon)))
+                                         (round damage 2/3)
+                                         damage)))
+                                (push
+                                 (make-instance 'damage
+                                                :x (quaspar:x victim)
+                                                :y (quaspar:y victim)
+                                                :damage (princ-to-string
+                                                          damage))
+                                 *damage*)
+                                damage)))
              (tovia:knock-backer 10)))
 
 (tovia:defsprite :energy tovia:projectile
@@ -88,12 +107,22 @@
   :effects (list
              (tovia:damager 10
                             (lambda (phenomenon victim damage)
-                              (declare (ignore victim))
-                              (round
-                                (* damage
-                                   (/ (tovia:current (tovia:life phenomenon))
-                                      (tovia:max-of
-                                        (tovia:life phenomenon)))))))
+                              (let ((damage
+                                     (round
+                                       (* damage
+                                          (/
+                                            (tovia:current
+                                              (tovia:life phenomenon))
+                                            (tovia:max-of
+                                              (tovia:life phenomenon)))))))
+                                (push
+                                 (make-instance 'damage
+                                                :x (quaspar:x victim)
+                                                :y (quaspar:y victim)
+                                                :damage (princ-to-string
+                                                          damage))
+                                 *damage*)
+                                damage)))
              (tovia:knock-backer 10)))
 
 (tovia:defsprite :barrage tovia:melee
@@ -291,7 +320,8 @@
 (defun test (win)
   (uiop:nest
     (progn
-     (setf *player* (tovia:add (tovia:sprite :romius win)))
+     (setf *player* (tovia:add (tovia:sprite :romius win))
+           *damage* nil)
      (multiple-value-bind (w h)
          (sdl2:get-window-size win)
        (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))))
@@ -320,6 +350,23 @@
                                 (tovia:phenomenon (push elt effects))))))
         (fude-gl:draw *player*)
         (mapc #'fude-gl:draw effects))
+      (loop :for d :in *damage*
+            :when (< 0 (decf (tovia:current (tovia:life d))))
+              :do (fude-gl:render-text (damage d)
+                                       :x (x d)
+                                       :y (incf (y d) tovia:*pixel-size*)
+                                       :scale 2
+                                       :alpha (float
+                                                (/
+                                                  (tovia:current
+                                                    (tovia:life d))
+                                                  (tovia:max-of
+                                                    (tovia:life d)))))
+            :finally (setf *damage*
+                             (delete-if
+                               (lambda (d)
+                                 (<= (tovia:current (tovia:life d)) 0))
+                               *damage*)))
       (tovia:delete-lives)
       (status-bar *player* win)
       (when (tovia:deadp *player*)
