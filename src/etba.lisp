@@ -156,9 +156,7 @@
     (setf (tovia:coeff-of :move subject)
             (acons :step-in (constantly (/ (tovia:boxel) 2))
                    (tovia:coeff-of :move subject)))
-    (tovia:move subject win :direction (tovia:last-direction subject))
-    (setf (tovia:coeff-of :move subject)
-            (delete :step-in (tovia:coeff-of :move subject) :key #'car)))
+    (tovia:move subject win :direction (tovia:last-direction subject)))
   (:method :before ((subject tovia:being) (win sdl2-ffi:sdl-window)
                     (arm (eql :energy)) &rest args)
     (declare (ignore args))
@@ -212,36 +210,41 @@
   (:method (s w)))
 
 (defmethod action ((player tovia:player) (win sdl2-ffi:sdl-window))
-  (let ((tracker (tovia:tracker player)))
-    (tovia:keypress-case
-      (:f
-       (if (tovia:key-down-p tracker :f)
-           (progn ; Keep on pressing.
-            (incf (tovia:current (tovia:key-tracker-time tracker)))
-            (tovia:move player win))
-           (progn ; First time to press.
-            (setf (tovia:current (tovia:key-tracker-time tracker))
-                    (1- (tovia:current (tovia:key-tracker-time tracker)))
-                  (tovia:coeff-of :move player)
-                    (acons :charging (lambda (x) (round x 2))
-                           (tovia:coeff-of :move player)))
-            (cond
-              ((tovia:command-input-p '(:f :f :f) tracker
-                                      (tovia:discrete-time 0 0.2))
-               (attack player win :barrage))
-              ((tovia:command-input-p '(:f :f) tracker
-                                      (tovia:discrete-time 0.3 0.4))
-               (attack player win :step-in-hit))
-              (t (attack player win :hit)))
-            (setf (tovia:keystate tracker :f) :down))))
-      (otherwise
-       (cond
-         ((tovia:key-down-p tracker :f)
-          (setf (tovia:keystate tracker :f) :up
-                (tovia:coeff-of :move player)
-                  (delete :charging (tovia:coeff-of :move player) :key #'car))
-          (attack player win :energy)))
-       (tovia:move player win)))))
+  (if (assoc :step-in (tovia:coeff-of :move player))
+      ;; Tiny stun.
+      (setf (tovia:coeff-of :move player)
+              (delete :step-in (tovia:coeff-of :move player) :key #'car))
+      (let ((tracker (tovia:tracker player)))
+        (tovia:keypress-case
+          (:f
+           (if (tovia:key-down-p tracker :f)
+               (progn ; Keep on pressing.
+                (incf (tovia:current (tovia:key-tracker-time tracker)))
+                (tovia:move player win))
+               (progn ; First time to press.
+                (setf (tovia:current (tovia:key-tracker-time tracker))
+                        (1- (tovia:current (tovia:key-tracker-time tracker)))
+                      (tovia:coeff-of :move player)
+                        (acons :charging (lambda (x) (round x 2))
+                               (tovia:coeff-of :move player)))
+                (cond
+                  ((tovia:command-input-p '(:f :f :f) tracker
+                                          (tovia:discrete-time 0 0.2))
+                   (attack player win :barrage))
+                  ((tovia:command-input-p '(:f :f) tracker
+                                          (tovia:discrete-time 0.3 0.4))
+                   (attack player win :step-in-hit))
+                  (t (attack player win :hit)))
+                (setf (tovia:keystate tracker :f) :down))))
+          (otherwise
+           (cond
+             ((tovia:key-down-p tracker :f)
+              (setf (tovia:keystate tracker :f) :up
+                    (tovia:coeff-of :move player)
+                      (delete :charging (tovia:coeff-of :move player)
+                              :key #'car))
+              (attack player win :energy)))
+           (tovia:move player win))))))
 
 (defmethod tovia:move :around ((o tovia:player) (win sdl2-ffi:sdl-window) &key)
   (let ((dash? (assoc :dush (tovia:coeff-of :move o))))
