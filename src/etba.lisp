@@ -316,6 +316,21 @@
   (unless (tovia:victimp o s)
     (tovia:play :hit)))
 
+(defun damage-pop-up ()
+  (loop :for d :in *damage*
+        :when (< 0 (decf (tovia:current (tovia:life d))))
+          :do (fude-gl:render-text (damage d)
+                                   :x (x d)
+                                   :y (incf (y d) tovia:*pixel-size*)
+                                   :scale 2
+                                   :alpha (float
+                                            (/ (tovia:current (tovia:life d))
+                                               (tovia:max-of (tovia:life d)))))
+        :finally (setf *damage*
+                         (delete-if
+                           (lambda (d) (<= (tovia:current (tovia:life d)) 0))
+                           *damage*))))
+
 ;;;; TRANSITIONS
 
 (defun test (win)
@@ -351,24 +366,7 @@
                                 (tovia:phenomenon (push elt effects))))))
         (fude-gl:draw *player*)
         (mapc #'fude-gl:draw effects))
-      (loop :for d :in *damage*
-            :when (< 0 (decf (tovia:current (tovia:life d))))
-              :do (fude-gl:render-text (damage d)
-                                       :x (x d)
-                                       :y (incf (y d) tovia:*pixel-size*)
-                                       :scale 2
-                                       :alpha (float
-                                                (/
-                                                  (tovia:current
-                                                    (tovia:life d))
-                                                  (tovia:max-of
-                                                    (tovia:life d)))))
-            :finally (setf *damage*
-                             (delete-if
-                               (lambda (d)
-                                 (<= (tovia:current (tovia:life d)) 0))
-                               *damage*)))
-      (tovia:delete-lives)
+      (damage-pop-up)
       (status-bar *player* win)
       (when (tovia:deadp *player*)
         (signal 'tovia:sequence-transition :next #'game-over))
