@@ -152,13 +152,18 @@
       ((3 4 5 6 7 8 9)
        (tovia:move s win :direction (tovia:target-direction s *player*)))))
   (:method ((s mashroom) (win sdl2-ffi:sdl-window))
-    (if (tovia:in-sight-p s *player* (* (tovia:boxel) 4))
-        (progn
-         (setf (tovia:last-direction s) (tovia:target-direction s *player*))
-         (when (zerop (random 5))
-           (attack s win :energy)))
-        (setf (tovia:last-direction s)
-                (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))))))
+    (multiple-value-bind (see? distance)
+        (tovia:in-sight-p s *player* (* (tovia:boxel) 4))
+      (if see?
+          (progn
+           (setf (tovia:last-direction s) (tovia:target-direction s *player*))
+           (when (zerop (random 5))
+             (attack s win
+                     (if (<= distance (tovia:boxel))
+                         :hit
+                         :energy))))
+          (setf (tovia:last-direction s)
+                  (aref #(:s :n :w :e :nw :ne :sw :se) (random 8)))))))
 
 (defmethod action ((player tovia:player) (win sdl2-ffi:sdl-window))
   (let ((tracker (tovia:tracker player)))
