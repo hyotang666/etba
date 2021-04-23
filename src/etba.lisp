@@ -103,7 +103,7 @@
   :timer 180
   :projection #'fude-gl:ortho
   :life 40
-  :effects (list (tovia:damager 10) (tovia:knock-backer 10)))
+  :effects (list (tovia:damager 5) (tovia:knock-backer 10)))
 
 (defgeneric attack (subject win arm &rest args)
   (:method ((subject tovia:being) (win sdl2-ffi:sdl-window) arm &rest args)
