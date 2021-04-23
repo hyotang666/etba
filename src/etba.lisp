@@ -313,7 +313,8 @@
                           (tovia:react a b))))))
 
 (defmethod tovia:react :before ((s tovia:phenomenon) (o tovia:being))
-  (tovia:play :hit))
+  (unless (tovia:victimp o s)
+    (tovia:play :hit)))
 
 ;;;; TRANSITIONS
 
