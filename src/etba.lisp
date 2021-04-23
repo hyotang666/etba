@@ -349,13 +349,18 @@
       (multiple-value-bind (w h)
           (sdl2:get-window-size win)
         (gl:viewport 0 (tovia:boxel) w (- h (tovia:boxel))))
+      ;; action
+      (quaspar:do-lqtree (o tovia:*colliders*)
+        (action o win))
+      ;; collision
+      (collision)
+      ;;;; draw
+      ;; background
       (fude-gl:with-uniforms ((tex :unit 0))
           'background-shader
         (setf tex (fude-gl:find-texture :earth))
         (fude-gl:draw 'tile))
-      (quaspar:do-lqtree (o tovia:*colliders*)
-        (action o win))
-      (collision)
+      ;; beings then effects.
       (let (effects)
         (quaspar:traverse tovia:*colliders*
                           (lambda (list)
@@ -368,8 +373,12 @@
         (mapc #'fude-gl:draw effects))
       (damage-pop-up)
       (status-bar *player* win)
+      ;;;; cleanup.
+      (tovia:delete-lives)
+      ;; gameover?
       (when (tovia:deadp *player*)
         (signal 'tovia:sequence-transition :next #'game-over))
+      ;; clear?
       (quaspar:do-lqtree (o tovia:*colliders*
                           (signal 'tovia:sequence-transition
                                   :next #'congratulations))
