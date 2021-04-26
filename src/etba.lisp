@@ -97,7 +97,7 @@
                                                           damage))
                                  *damage*)
                                 damage)))
-             (tovia:knock-backer 10)))
+             (tovia:knock-backer (tovia:boxel))))
 
 (tovia:defsprite :energy tovia:projectile
   :unit 1/8
