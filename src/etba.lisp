@@ -202,7 +202,7 @@
            (setf (tovia:last-direction s) (tovia:target-direction s *player*))
            (when (zerop (random 5))
              (attack s win
-                     (if (<= distance (tovia:boxel))
+                     (if (<= distance (* 2 (tovia:boxel)))
                          :hit
                          :energy))))
           (setf (tovia:last-direction s)
