@@ -138,7 +138,7 @@
   (:method :around ((subject tovia:player) (win sdl2-ffi:sdl-window)
                     (arm (eql :energy)) &rest args)
     (declare (ignore args))
-    (let* ((tracker (tovia:tracker subject))
+    (let* ((tracker (tovia:key-tracker subject))
            (time (tovia:current (tovia:key-tracker-time tracker))))
       (setf (tovia:current (tovia:key-tracker-time tracker)) 0)
       (when (< 10 time)
@@ -214,7 +214,7 @@
       ;; Tiny stun.
       (setf (tovia:coeff-of :move player)
               (delete :step-in (tovia:coeff-of :move player) :key #'car))
-      (let ((tracker (tovia:tracker player)))
+      (let ((tracker (tovia:key-tracker player)))
         (tovia:keypress-case
           (:f
            (if (tovia:key-down-p tracker :f)
