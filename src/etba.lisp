@@ -232,7 +232,7 @@
                                           (tovia:discrete-time 0 0.2))
                    (attack player win :barrage))
                   ((tovia:command-input-p '(:f :f) tracker
-                                          (tovia:discrete-time 0.3 0.4))
+                                          (tovia:discrete-time 0.3 0.5))
                    (attack player win :step-in-hit))
                   (t (attack player win :hit)))
                 (setf (tovia:keystate tracker :f) :down))))
