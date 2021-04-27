@@ -74,12 +74,19 @@
   (def :energy "effects/energy.png")
   (def :barrage "effects/barrage.png")
   (def :mashroom "characters/mashroom.png" mashroom :response 8)
-  (def :preliminary "effects/preliminary.png"))
+  (def :preliminary "effects/preliminary.png")
+  (def :guard "effects/guard.png"))
 
 (tovia:defsprite :preliminary tovia:status-effect
   :unit 1/8
   :texture (fude-gl:find-texture :preliminary)
   :stepper (alexandria:circular-list '(0 0) '(1 0) '(2 0))
+  :timer 64
+  :projection #'fude-gl:ortho)
+
+(tovia:defsprite :guard tovia:guard-effect
+  :unit 1/8
+  :texture (fude-gl:find-texture :guard)
   :timer 64
   :projection #'fude-gl:ortho)
 
@@ -92,18 +99,24 @@
   :effects (list
              (tovia:damager 10
                             (lambda (phenomenon victim damage)
-                              (let ((damage
-                                     (if (tovia:find-coeff :step-in (tovia:coeff-of
-                                                                      :move (tovia:who
-                                                                              phenomenon)))
-                                         (round damage 2/3)
-                                         damage)))
+                              (let* ((guard
+                                      (tovia:find-coeff :guard (tovia:coeff-of
+                                                                 :status-effect victim)))
+                                     (damage
+                                      (cond (guard 0)
+                                            ((tovia:find-coeff :step-in (tovia:coeff-of
+                                                                          :move (tovia:who
+                                                                                  phenomenon)))
+                                             (round damage 2/3))
+                                            (t damage))))
                                 (push
                                  (make-instance 'damage
                                                 :x (quaspar:x victim)
                                                 :y (quaspar:y victim)
-                                                :damage (princ-to-string
-                                                          damage))
+                                                :damage (if guard
+                                                            "GUARD!"
+                                                            (princ-to-string
+                                                              damage)))
                                  *damage*)
                                 damage)))
              (tovia:knock-backer (tovia:boxel))))
@@ -116,20 +129,28 @@
   :effects (list
              (tovia:damager 10
                             (lambda (phenomenon victim damage)
-                              (let ((damage
-                                     (round
-                                       (* damage
-                                          (/
-                                            (tovia:current
-                                              (tovia:life phenomenon))
-                                            (tovia:max-of
-                                              (tovia:life phenomenon)))))))
+                              (let* ((guard
+                                      (tovia:find-coeff :guard (tovia:coeff-of
+                                                                 :status-effect victim)))
+                                     (damage
+                                      (if guard
+                                          0
+                                          (round
+                                            (* damage
+                                               (/
+                                                 (tovia:current
+                                                   (tovia:life phenomenon))
+                                                 (tovia:max-of
+                                                   (tovia:life
+                                                     phenomenon))))))))
                                 (push
                                  (make-instance 'damage
                                                 :x (quaspar:x victim)
                                                 :y (quaspar:y victim)
-                                                :damage (princ-to-string
-                                                          damage))
+                                                :damage (if guard
+                                                            "GUARD!"
+                                                            (princ-to-string
+                                                              damage)))
                                  *damage*)
                                 damage)))
              (tovia:knock-backer 10)))
@@ -220,13 +241,15 @@
                                   :x (quaspar:x s)
                                   :y (quaspar:y s)
                                   :life 9)))
-               (push preliminary (tovia:coeff-of :status-effect s))
+               (setf (tovia:coeff-of :status-effect s)
+                       (tovia:append-coeff (tovia:coeff-of :status-effect s)
+                                           :preliminary preliminary))
                (uiop:appendf (tovia:reserved-actions s)
                              (list
                                (lambda (mash win)
                                  (declare (ignore mash win))
-                                 (unless (find preliminary
-                                               (tovia:coeff-of :status-effect s))
+                                 (unless (tovia:find-coeff :preliminary (tovia:coeff-of
+                                                                          :status-effect s))
                                    (setf (tovia:reserved-actions s)
                                            (delete preliminary
                                                    (tovia:reserved-actions
@@ -266,6 +289,22 @@
                    (attack player win :step-in-hit))
                   (t (attack player win :hit)))
                 (setf (tovia:keystate tracker :f) :down))))
+          (:g
+           (if (tovia:key-down-p tracker :g)
+               (incf
+                (tovia:current
+                  (tovia:life
+                    (cdr
+                      (tovia:find-coeff :guard (tovia:coeff-of :status-effect player))))))
+               (setf (tovia:keystate tracker :g) :down
+                     (tovia:coeff-of :status-effect player)
+                       (tovia:append-coeff
+                         (tovia:coeff-of :status-effect player)
+                         :guard (tovia:sprite :guard win
+                                              :x (quaspar:x player)
+                                              :y (quaspar:y player)
+                                              :direction (tovia:last-direction
+                                                           player))))))
           (otherwise
            (cond
              ((tovia:key-down-p tracker :f)
@@ -276,8 +315,11 @@
            (when (tovia:key-down-p tracker :g)
              (setf (tovia:current
                      (tovia:life
-                       (find guard (tovia:coeff-of :status-efffect player))))
-                     0))
+                       (cdr
+                         (tovia:find-coeff :guard (tovia:coeff-of
+                                                    :status-effect player)))))
+                     0
+                   (tovia:keystate tracker :g) :up))
            (tovia:move player win))))))
 
 (defmethod tovia:move :around ((o tovia:player) (win sdl2-ffi:sdl-window) &key)
@@ -359,7 +401,7 @@
           :do (fude-gl:render-text (damage d)
                                    :x (x d)
                                    :y (incf (y d) tovia:*pixel-size*)
-                                   :scale 2
+                                   :scale 1.5
                                    :alpha (float
                                             (/ (tovia:current (tovia:life d))
                                                (tovia:max-of (tovia:life d)))))
