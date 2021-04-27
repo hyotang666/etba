@@ -73,7 +73,15 @@
   (def :hit "effects/hit.png")
   (def :energy "effects/energy.png")
   (def :barrage "effects/barrage.png")
-  (def :mashroom "characters/mashroom.png" mashroom :response 8))
+  (def :mashroom "characters/mashroom.png" mashroom :response 8)
+  (def :preliminary "effects/preliminary.png"))
+
+(tovia:defsprite :preliminary tovia:status-effect
+  :unit 1/8
+  :texture (fude-gl:find-texture :preliminary)
+  :stepper (alexandria:circular-list '(0 0) '(1 0) '(2 0))
+  :timer 64
+  :projection #'fude-gl:ortho)
 
 (tovia:defsprite :hit tovia:effect
   :unit 1/4
@@ -178,7 +186,9 @@
 (defgeneric action (subject window)
   (:method :around ((s tovia:being) (win sdl2-ffi:sdl-window))
     (when (tovia:apply-coeff (tovia:response? s) (tovia:coeff-of :response s))
-      (call-next-method)))
+      (if (tovia:reserved-actions s)
+          (funcall (pop (tovia:reserved-actions s)) s win)
+          (call-next-method))))
   (:method ((s tovia:melee) (win sdl2-ffi:sdl-window))
     (when (<= (decf (tovia:current (tovia:life s))) 0)
       (setf (tovia:coeff-of :response (tovia:who s))
@@ -201,10 +211,27 @@
           (progn
            (setf (tovia:last-direction s) (tovia:target-direction s *player*))
            (when (zerop (random 5))
-             (attack s win
-                     (if (<= distance (* 2 (tovia:boxel)))
-                         :hit
-                         :energy))))
+             (let ((preliminary
+                    (tovia:sprite :preliminary win
+                                  :x (quaspar:x s)
+                                  :y (quaspar:y s)
+                                  :life 9)))
+               (push preliminary (tovia:coeff-of :status-effect s))
+               (uiop:appendf (tovia:reserved-actions s)
+                             (list
+                               (lambda (mash win)
+                                 (declare (ignore mash win))
+                                 (unless (find preliminary
+                                               (tovia:coeff-of :status-effect s))
+                                   (setf (tovia:reserved-actions s)
+                                           (delete preliminary
+                                                   (tovia:reserved-actions
+                                                     s)))))
+                               (lambda (mash win)
+                                 (attack mash win
+                                         (if (<= distance (* 2 (tovia:boxel)))
+                                             :hit
+                                             :energy))))))))
           (setf (tovia:last-direction s)
                   (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))))))
   (:method (s w)))
