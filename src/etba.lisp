@@ -194,8 +194,8 @@
   (:method ((s tovia:melee) (win sdl2-ffi:sdl-window))
     (when (<= (decf (tovia:current (tovia:life s))) 0)
       (setf (tovia:coeff-of :response (tovia:who s))
-              (delete :stun (tovia:coeff-of :response (tovia:who s))
-                      :key #'car))))
+              (tovia:delete-coeff :stun (tovia:coeff-of :response (tovia:who
+                                                                    s))))))
   (:method ((s tovia:projectile) (win sdl2-ffi:sdl-window))
     (decf (tovia:current (tovia:life s)))
     (tovia:move s win))
@@ -242,7 +242,7 @@
   (if (tovia:find-coeff :step-in (tovia:coeff-of :move player))
       ;; Tiny stun.
       (setf (tovia:coeff-of :move player)
-              (delete :step-in (tovia:coeff-of :move player) :key #'car))
+              (tovia:delete-coeff :step-in (tovia:coeff-of :move player)))
       (let ((tracker (tovia:key-tracker player)))
         (tovia:keypress-case
           (:f
@@ -271,8 +271,7 @@
              ((tovia:key-down-p tracker :f)
               (setf (tovia:keystate tracker :f) :up
                     (tovia:coeff-of :move player)
-                      (delete :charging (tovia:coeff-of :move player)
-                              :key #'car))
+                      (tovia:delete-coeff :charging (tovia:coeff-of :move player)))
               (attack player win :energy)))
            (when (tovia:key-down-p tracker :g)
              (setf (tovia:current
