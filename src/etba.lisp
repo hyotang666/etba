@@ -93,8 +93,9 @@
              (tovia:damager 10
                             (lambda (phenomenon victim damage)
                               (let ((damage
-                                     (if (assoc :step-in (tovia:coeff-of :move (tovia:who
-                                                                                 phenomenon)))
+                                     (if (tovia:find-coeff :step-in (tovia:coeff-of
+                                                                      :move (tovia:who
+                                                                              phenomenon)))
                                          (round damage 2/3)
                                          damage)))
                                 (push
@@ -237,7 +238,7 @@
   (:method (s w)))
 
 (defmethod action ((player tovia:player) (win sdl2-ffi:sdl-window))
-  (if (assoc :step-in (tovia:coeff-of :move player))
+  (if (tovia:find-coeff :step-in (tovia:coeff-of :move player))
       ;; Tiny stun.
       (setf (tovia:coeff-of :move player)
               (delete :step-in (tovia:coeff-of :move player) :key #'car))
@@ -271,12 +272,17 @@
                       (delete :charging (tovia:coeff-of :move player)
                               :key #'car))
               (attack player win :energy)))
+           (when (tovia:key-down-p tracker :g)
+             (setf (tovia:current
+                     (tovia:life
+                       (find guard (tovia:coeff-of :status-efffect player))))
+                     0))
            (tovia:move player win))))))
 
 (defmethod tovia:move :around ((o tovia:player) (win sdl2-ffi:sdl-window) &key)
-  (let ((dash? (assoc :dush (tovia:coeff-of :move o))))
+  (let ((dash? (tovia:find-coeff :dush (tovia:coeff-of :move o))))
     (call-next-method)
-    (when (and (null dash?) (assoc :dush (tovia:coeff-of :move o)))
+    (when (and (null dash?) (tovia:find-coeff :dush (tovia:coeff-of :move o)))
       (tovia:play :dash))))
 
 ;;;; SHADER
