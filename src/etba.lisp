@@ -207,7 +207,9 @@
   (:method ((s mashroom) (win sdl2-ffi:sdl-window))
     (multiple-value-bind (see? distance)
         (tovia:in-sight-p s *player* (* (tovia:boxel) 4))
-      (if see?
+      (if (not see?)
+          (setf (tovia:last-direction s)
+                  (aref #(:s :n :w :e :nw :ne :sw :se) (random 8)))
           (progn
            (setf (tovia:last-direction s) (tovia:target-direction s *player*))
            (when (zerop (random 5))
@@ -231,9 +233,7 @@
                                  (attack mash win
                                          (if (<= distance (* 2 (tovia:boxel)))
                                              :hit
-                                             :energy))))))))
-          (setf (tovia:last-direction s)
-                  (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))))))
+                                             :energy)))))))))))
   (:method (s w)))
 
 (defmethod action ((player tovia:player) (win sdl2-ffi:sdl-window))
