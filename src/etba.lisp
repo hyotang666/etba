@@ -32,7 +32,10 @@
   (def :swing-heavy "swing-heavy.wav")
   (def :hit "hit1.wav")
   (def :projectile "projectile.wav")
-  (def :dash "dash.wav"))
+  (def :dash "dash.wav")
+  (def :guard "guard.wav")
+  (def :backstep "backstep.wav")
+  (def :shield-bash "shield-bash.wav"))
 
 ;;;; TEXTURES
 
@@ -115,7 +118,10 @@
                                                 :x (quaspar:x victim)
                                                 :y (quaspar:y victim)
                                                 :damage (if guard
-                                                            "GUARD!"
+                                                            (progn
+                                                             (tovia:play
+                                                               :guard)
+                                                             "GUARD!")
                                                             (princ-to-string
                                                               damage)))
                                  *damage*)
@@ -149,7 +155,10 @@
                                                 :x (quaspar:x victim)
                                                 :y (quaspar:y victim)
                                                 :damage (if guard
-                                                            "GUARD!"
+                                                            (progn
+                                                             (tovia:play
+                                                               :guard)
+                                                             "GUARD!")
                                                             (princ-to-string
                                                               damage)))
                                  *damage*)
@@ -300,6 +309,7 @@
               (let ((tovia:*coeffs*
                      (acons :shield-bash (constantly (tovia:boxel))
                             tovia:*coeffs*)))
+                (tovia:play :shield-bash)
                 (tovia:move player win
                             :direction (tovia:last-direction player)
                             :animate nil)
@@ -321,6 +331,7 @@
                                                                      player))))
        (cond
          ((tovia:command-input-p '(:g :g) tracker (tovia:discrete-time 0 0.2))
+          (tovia:play :backstep)
           (let ((tovia:*coeffs*
                  (acons :back-step (constantly (tovia:boxel)) tovia:*coeffs*)))
             (tovia:move player win
