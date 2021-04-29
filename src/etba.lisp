@@ -59,6 +59,11 @@
 (defmethod initialize-instance :after ((o damage) &key (life 20))
   (setf (slot-value o 'life) (tovia:make-parameter life)))
 
+(defclass key-tracker (tovia:key-tracker)
+  ((last-shield-bash-time :initform (get-internal-real-time)
+                          :accessor last-shield-bash-time
+                          :type fixnum)))
+
 (macrolet ((def (name pathname &optional spritep &rest args)
              `(progn
                (fude-gl:defimage ,name (image-pathname ,pathname))
@@ -73,7 +78,8 @@
                        :projection #'fude-gl:ortho
                        ,@args))))))
   (def :earth "backgrounds/earth.png")
-  (def :romius "characters/romius.png" tovia:player)
+  (def :romius "characters/romius.png" tovia:player :key-tracker
+   (make-instance 'key-tracker))
   (def :hit "effects/hit.png")
   (def :energy "effects/energy.png")
   (def :barrage "effects/barrage.png")
@@ -342,29 +348,34 @@
                                                                        player))))))))
 
 (defun shield-bash (player win)
-  (flet ((shield-bash (player victim)
-           (let ((damage 10))
-             (tovia:play :hit)
-             (funcall (funcall (tovia:knock-backer (* 2 (tovia:boxel))) win)
-                      player victim)
-             (push
-              (make-instance 'damage
-                             :x (quaspar:x victim)
-                             :y (quaspar:y victim)
-                             :damage (princ-to-string damage))
-              *damage*)
-             (decf (tovia:current (tovia:life victim)) damage)))
-         (cleanup (player win)
-           (declare (ignore win))
-           (tovia:rem-reaction :shield-bash player)))
-    (let ((tovia:*coeffs*
-           (acons :shield-bash (constantly (tovia:boxel)) tovia:*coeffs*)))
-      (tovia:play :shield-bash)
-      (tovia:add-reaction :shield-bash #'shield-bash player)
-      (tovia:reserve-actions player `(:shield-bash . ,#'cleanup))
-      (tovia:move player win
-                  :direction (tovia:last-direction player)
-                  :animate nil))))
+  (when (<= #.(* internal-time-units-per-second 5)
+            (- (get-internal-real-time)
+               (last-shield-bash-time (tovia:key-tracker player))))
+    (flet ((shield-bash (player victim)
+             (let ((damage 10))
+               (tovia:play :hit)
+               (funcall (funcall (tovia:knock-backer (* 2 (tovia:boxel))) win)
+                        player victim)
+               (push
+                (make-instance 'damage
+                               :x (quaspar:x victim)
+                               :y (quaspar:y victim)
+                               :damage (princ-to-string damage))
+                *damage*)
+               (decf (tovia:current (tovia:life victim)) damage)))
+           (cleanup (player win)
+             (declare (ignore win))
+             (tovia:rem-reaction :shield-bash player)))
+      (let ((tovia:*coeffs*
+             (acons :shield-bash (constantly (tovia:boxel)) tovia:*coeffs*)))
+        (setf (last-shield-bash-time (tovia:key-tracker player))
+                (get-internal-real-time))
+        (tovia:play :shield-bash)
+        (tovia:add-reaction :shield-bash #'shield-bash player)
+        (tovia:reserve-actions player `(:shield-bash . ,#'cleanup))
+        (tovia:move player win
+                    :direction (tovia:last-direction player)
+                    :animate nil)))))
 
 (defmethod key-action
            ((key (eql :g)) (player tovia:player) (win sdl2-ffi:sdl-window))
