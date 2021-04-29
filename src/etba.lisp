@@ -17,12 +17,13 @@
 
 ;;;; SOUNDS
 
-(defparameter *default-sounds-directory*
-  (merge-pathnames "resources/sounds/"
-                   (asdf:system-source-directory (asdf:find-system :etba))))
-
-(defun sound-pathname (name)
-  (truename (merge-pathnames name *default-sounds-directory*)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; TOVIA:DEFSOUND need this eval-when.
+  (defparameter *default-sounds-directory*
+    (merge-pathnames "resources/sounds/"
+                     (asdf:system-source-directory (asdf:find-system :etba))))
+  (defun sound-pathname (name)
+    (truename (merge-pathnames name *default-sounds-directory*))))
 
 (macrolet ((def (name pathname)
              `(tovia:defsound ,name (sound-pathname ,pathname))))
