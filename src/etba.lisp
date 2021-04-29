@@ -295,6 +295,20 @@
            (t (attack player win :hit)))
          (setf (tovia:keystate tracker :f) :down)))))
 
+(defun shield-bash (win)
+  (lambda (player victim)
+    (let ((damage 10))
+      (tovia:play :hit)
+      (funcall (funcall (tovia:knock-backer (* 2 (tovia:boxel))) win) player
+               victim)
+      (push
+       (make-instance 'damage
+                      :x (quaspar:x victim)
+                      :y (quaspar:y victim)
+                      :damage (princ-to-string damage))
+       *damage*)
+      (decf (tovia:current (tovia:life victim)) damage))))
+
 (defmethod key-action
            ((key (eql :g)) (player tovia:player) (win sdl2-ffi:sdl-window))
   (let ((tracker (tovia:key-tracker player)))
@@ -309,6 +323,12 @@
                      (acons :shield-bash (constantly (tovia:boxel))
                             tovia:*coeffs*)))
                 (tovia:play :shield-bash)
+                (tovia:add-reaction :shield-bash (shield-bash win) player)
+                (tovia:reserve-actions player
+                                       `(:shield-bash .
+                                         ,(lambda (player win)
+                                            (declare (ignore win))
+                                            (tovia:rem-reaction :shield-bash player))))
                 (tovia:move player win
                             :direction (tovia:last-direction player)
                             :animate nil)
