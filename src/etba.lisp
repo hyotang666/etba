@@ -100,6 +100,37 @@
   :timer 64
   :projection #'fude-gl:ortho)
 
+(defun hit-dir-coeff (phenomenon victim)
+  (ecase (tovia:last-direction phenomenon)
+    (:n
+     #.(#0=(lambda (direction)
+             `(ecase (tovia:last-direction victim)
+                ,@(let* ((dirs (list :n :ne :e :se :s :sw :w :nw))
+                         (position (position direction dirs)))
+                    (loop :for dir :in dirs
+                          :for pos = (position dir dirs)
+                          :for diff
+                               = (multiple-value-bind (a rem)
+                                     (floor (abs (- position pos)) 4)
+                                   (if (zerop a)
+                                       rem
+                                       (- 4 rem)))
+                          :collect `(,dir
+                                     ,(ecase diff
+                                        (0 1)
+                                        (1 3/4)
+                                        (2 1/2)
+                                        (3 1/4)
+                                        (4 0)))))))
+        :n))
+    (:ne #.(#0# :ne))
+    (:e #.(#0# :e))
+    (:se #.(#0# :se))
+    (:s #.(#0# :s))
+    (:sw #.(#0# :sw))
+    (:w #.(#0# :w))
+    (:nw #.(#0# :nw))))
+
 (tovia:defsprite :hit tovia:effect
   :unit 1/4
   :texture (fude-gl:find-texture :hit)
@@ -112,13 +143,15 @@
                               (let* ((guard
                                       (tovia:find-coeff :guard (tovia:coeff-of
                                                                  :status-effect victim)))
+                                     (coeff (hit-dir-coeff phenomenon victim))
                                      (damage
-                                      (cond (guard 0)
-                                            ((tovia:find-coeff :step-in (tovia:coeff-of
-                                                                          :move (tovia:who
-                                                                                  phenomenon)))
-                                             (round damage 2/3))
-                                            (t damage))))
+                                      (round
+                                        (cond (guard (* damage coeff))
+                                              ((tovia:find-coeff :step-in (tovia:coeff-of
+                                                                            :move (tovia:who
+                                                                                    phenomenon)))
+                                               (* (1+ coeff) damage 3/2))
+                                              (t (* (1+ coeff) damage))))))
                                 (push
                                  (make-instance 'damage
                                                 :x (quaspar:x victim)
@@ -145,17 +178,19 @@
                               (let* ((guard
                                       (tovia:find-coeff :guard (tovia:coeff-of
                                                                  :status-effect victim)))
+                                     (coeff (hit-dir-coeff phenomenon victim))
                                      (damage
-                                      (if guard
-                                          0
-                                          (round
-                                            (* damage
-                                               (/
-                                                 (tovia:current
-                                                   (tovia:life phenomenon))
-                                                 (tovia:max-of
-                                                   (tovia:life
-                                                     phenomenon))))))))
+                                      (round
+                                        (if guard
+                                            (* damage coeff)
+                                            (* (1+ coeff)
+                                               (* damage
+                                                  (/
+                                                    (tovia:current
+                                                      (tovia:life phenomenon))
+                                                    (tovia:max-of
+                                                      (tovia:life
+                                                        phenomenon)))))))))
                                 (push
                                  (make-instance 'damage
                                                 :x (quaspar:x victim)
