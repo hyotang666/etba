@@ -220,7 +220,7 @@
   (:method :around ((s tovia:being) (win sdl2-ffi:sdl-window))
     (when (tovia:apply-coeff (tovia:response? s) (tovia:coeff-of :response s))
       (if (tovia:reserved-actions s)
-          (funcall (pop (tovia:reserved-actions s)) s win)
+          (tovia:do-reserved-action s win)
           (call-next-method))))
   (:method ((s tovia:melee) (win sdl2-ffi:sdl-window))
     (when (<= (decf (tovia:current (tovia:life s))) 0)
@@ -254,21 +254,20 @@
                (setf (tovia:coeff-of :status-effect s)
                        (tovia:append-coeff (tovia:coeff-of :status-effect s)
                                            :preliminary preliminary))
-               (uiop:appendf (tovia:reserved-actions s)
-                             (list
-                               (lambda (mash win)
-                                 (declare (ignore mash win))
-                                 (unless (tovia:find-coeff :preliminary (tovia:coeff-of
-                                                                          :status-effect s))
-                                   (setf (tovia:reserved-actions s)
-                                           (delete preliminary
-                                                   (tovia:reserved-actions
-                                                     s)))))
-                               (lambda (mash win)
-                                 (attack mash win
-                                         (if (<= distance (* 2 (tovia:boxel)))
-                                             :hit
-                                             :energy)))))))))))
+               (flet ((preliminary (mash win)
+                        (declare (ignore mash win))
+                        (unless (tovia:find-coeff :preliminary (tovia:coeff-of
+                                                                 :status-effect s))
+                          (setf (tovia:reserved-actions s)
+                                  (delete preliminary
+                                          (tovia:reserved-actions s)))))
+                      (attack! (mash win)
+                        (attack mash win
+                                (if (<= distance (* 2 (tovia:boxel)))
+                                    :hit
+                                    :energy))))
+                 (tovia:reserve-actions s (cons :preliminary #'preliminary)
+                                        (cons :attack #'attack!)))))))))
   (:method (s w)))
 
 (defgeneric key-action (key subject win))
