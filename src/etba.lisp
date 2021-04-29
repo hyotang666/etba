@@ -295,69 +295,92 @@
            (t (attack player win :hit)))
          (setf (tovia:keystate tracker :f) :down)))))
 
-(defun shield-bash (win)
-  (lambda (player victim)
-    (let ((damage 10))
-      (tovia:play :hit)
-      (funcall (funcall (tovia:knock-backer (* 2 (tovia:boxel))) win) player
-               victim)
-      (push
-       (make-instance 'damage
-                      :x (quaspar:x victim)
-                      :y (quaspar:y victim)
-                      :damage (princ-to-string damage))
-       *damage*)
-      (decf (tovia:current (tovia:life victim)) damage))))
+(defun guard (player win)
+  (let ((tracker (tovia:key-tracker player)))
+    ;; NOTE: When coeff's life becomes 0,
+    ;;       FUDE-GL:DRAW method deletes it.
+    (setf (tovia:coeff-of :status-effect player)
+            (tovia:append-coeff (tovia:coeff-of :status-effect player)
+                                :guard (tovia:sprite :guard win
+                                                     :x (quaspar:x player)
+                                                     :y (quaspar:y player)
+                                                     :direction (tovia:last-direction
+                                                                  player))))
+    (when (tovia:command-input-p '(:g :g) tracker (tovia:discrete-time 0 0.2))
+      ;; Back-step
+      (tovia:play :backstep)
+      (let ((tovia:*coeffs*
+             (acons :back-step (constantly (tovia:boxel)) tovia:*coeffs*)))
+        (tovia:move player win
+                    :direction (tovia:turn-direction
+                                 (tovia:last-direction player))
+                    :animate nil)))))
+
+(defun guarding (player win)
+  (let ((last-direction (tovia:last-direction player)))
+    (let ((tovia:*coeffs* (acons :guard (constantly 0) tovia:*coeffs*)))
+      (tovia:move player win))
+    (if (eq last-direction (tovia:last-direction player))
+        (incf ; To reset life.
+              (tovia:current
+                (tovia:life
+                  (cdr
+                    (tovia:find-coeff :guard (tovia:coeff-of :status-effect player))))))
+        (progn
+         (setf (tovia:current
+                 (tovia:life
+                   (cdr
+                     (tovia:find-coeff :guard (tovia:coeff-of :status-effect player)))))
+                 0)
+         ;; add new shield with new direction.
+         (setf (tovia:coeff-of :status-effect player)
+                 (tovia:append-coeff (tovia:coeff-of :status-effect player)
+                                     :guard (tovia:sprite :guard win
+                                                          :x (quaspar:x player)
+                                                          :y (quaspar:y player)
+                                                          :direction (tovia:last-direction
+                                                                       player))))))))
+
+(defun shield-bash (player win)
+  (flet ((shield-bash (player victim)
+           (let ((damage 10))
+             (tovia:play :hit)
+             (funcall (funcall (tovia:knock-backer (* 2 (tovia:boxel))) win)
+                      player victim)
+             (push
+              (make-instance 'damage
+                             :x (quaspar:x victim)
+                             :y (quaspar:y victim)
+                             :damage (princ-to-string damage))
+              *damage*)
+             (decf (tovia:current (tovia:life victim)) damage)))
+         (cleanup (player win)
+           (declare (ignore win))
+           (tovia:rem-reaction :shield-bash player)))
+    (let ((tovia:*coeffs*
+           (acons :shield-bash (constantly (tovia:boxel)) tovia:*coeffs*)))
+      (tovia:play :shield-bash)
+      (tovia:add-reaction :shield-bash #'shield-bash player)
+      (tovia:reserve-actions player `(:shield-bash . ,#'cleanup))
+      (tovia:move player win
+                  :direction (tovia:last-direction player)
+                  :animate nil))))
 
 (defmethod key-action
            ((key (eql :g)) (player tovia:player) (win sdl2-ffi:sdl-window))
   (let ((tracker (tovia:key-tracker player)))
     (cond
-      ((tovia:key-down-p tracker :g) ; Keep on pressing.
-       (cond
-         ((tovia:keypressp :f)
-          (if (tovia:key-down-p tracker :f) ; keep on pressing g+f.
-              nil ; do nothing.
-              ;; First time to press g+f
-              (let ((tovia:*coeffs*
-                     (acons :shield-bash (constantly (tovia:boxel))
-                            tovia:*coeffs*)))
-                (tovia:play :shield-bash)
-                (tovia:add-reaction :shield-bash (shield-bash win) player)
-                (tovia:reserve-actions player
-                                       `(:shield-bash .
-                                         ,(lambda (player win)
-                                            (declare (ignore win))
-                                            (tovia:rem-reaction :shield-bash player))))
-                (tovia:move player win
-                            :direction (tovia:last-direction player)
-                            :animate nil)
-                (setf (tovia:keystate tracker :f) :down))))
-         (t
-          (setf (tovia:keystate tracker :f) :up)
-          (incf
-           (tovia:current
-             (tovia:life
-               (cdr
-                 (tovia:find-coeff :guard (tovia:coeff-of :status-effect player)))))))))
-      (t
-       (setf (tovia:coeff-of :status-effect player)
-               (tovia:append-coeff (tovia:coeff-of :status-effect player)
-                                   :guard (tovia:sprite :guard win
-                                                        :x (quaspar:x player)
-                                                        :y (quaspar:y player)
-                                                        :direction (tovia:last-direction
-                                                                     player))))
-       (cond
-         ((tovia:command-input-p '(:g :g) tracker (tovia:discrete-time 0 0.2))
-          (tovia:play :backstep)
-          (let ((tovia:*coeffs*
-                 (acons :back-step (constantly (tovia:boxel)) tovia:*coeffs*)))
-            (tovia:move player win
-                        :direction (tovia:turn-direction
-                                     (tovia:last-direction player))
-                        :animate nil))))
-       (setf (tovia:keystate tracker :g) :down)))))
+      ((not (tovia:key-down-p tracker :g)) ; N times to press g.
+       (guard player win)
+       (setf (tovia:keystate tracker :g) :down))
+      ((not (tovia:keypressp :f)) ; Just keep on pressing g.
+       (guarding player win)
+       (setf (tovia:keystate tracker :f) :up))
+      ((not (tovia:key-down-p tracker :f)) ; First time to press g+f.
+       (shield-bash player win)
+       (setf (tovia:keystate tracker :f) :down))
+      (t ; keep on pressing g+f. Do nothing.
+       nil))))
 
 (defmethod action ((player tovia:player) (win sdl2-ffi:sdl-window))
   (if (tovia:find-coeff :step-in (tovia:coeff-of :move player))
