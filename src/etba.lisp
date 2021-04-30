@@ -48,6 +48,8 @@
 
 (defclass mashroom (tovia:npc) ())
 
+(defclass snail (tovia:npc) ())
+
 (defparameter *damage* nil)
 
 (defclass damage ()
@@ -85,7 +87,8 @@
   (def :barrage "effects/barrage.png")
   (def :mashroom "characters/mashroom.png" mashroom :response 8)
   (def :preliminary "effects/preliminary.png")
-  (def :guard "effects/guard.png"))
+  (def :guard "effects/guard.png")
+  (def :snail "characters/snail.png" snail :response 8))
 
 (tovia:defsprite :preliminary tovia:status-effect
   :unit 1/8
@@ -216,6 +219,27 @@
   :effects (list (tovia:damager 5) (tovia:knock-backer 10)))
 
 (defgeneric attack (subject win arm &rest args)
+  (:method :around ((s tovia:npc) (win sdl2-ffi:sdl-window) arm &rest args)
+    (declare (ignore args))
+    (let ((preliminary
+           (tovia:sprite :preliminary win
+                         :x (quaspar:x s)
+                         :y (quaspar:y s)
+                         :life 9)))
+      (setf (tovia:coeff-of :status-effect s)
+              (tovia:append-coeff (tovia:coeff-of :status-effect s)
+                                  :preliminary preliminary))
+      (flet ((preliminary (subject win)
+               (declare (ignore subject win))
+               (unless (tovia:find-coeff :preliminary (tovia:coeff-of
+                                                        :status-effect s))
+                 (setf (tovia:reserved-actions s)
+                         (delete preliminary (tovia:reserved-actions s)))))
+             (attack! (subject win)
+               (declare (ignore subject win))
+               (call-next-method)))
+        (tovia:reserve-actions s (cons :preliminary #'preliminary)
+                               (cons :attack #'attack!)))))
   (:method :around ((subject tovia:player) (win sdl2-ffi:sdl-window)
                     (arm (eql :energy)) &rest args)
     (declare (ignore args))
@@ -287,28 +311,10 @@
           (progn
            (setf (tovia:last-direction s) (tovia:target-direction s *player*))
            (when (zerop (random 5))
-             (let ((preliminary
-                    (tovia:sprite :preliminary win
-                                  :x (quaspar:x s)
-                                  :y (quaspar:y s)
-                                  :life 9)))
-               (setf (tovia:coeff-of :status-effect s)
-                       (tovia:append-coeff (tovia:coeff-of :status-effect s)
-                                           :preliminary preliminary))
-               (flet ((preliminary (mash win)
-                        (declare (ignore mash win))
-                        (unless (tovia:find-coeff :preliminary (tovia:coeff-of
-                                                                 :status-effect s))
-                          (setf (tovia:reserved-actions s)
-                                  (delete preliminary
-                                          (tovia:reserved-actions s)))))
-                      (attack! (mash win)
-                        (attack mash win
-                                (if (<= distance (* 2 (tovia:boxel)))
-                                    :hit
-                                    :energy))))
-                 (tovia:reserve-actions s (cons :preliminary #'preliminary)
-                                        (cons :attack #'attack!)))))))))
+             (attack s win
+                     (if (<= distance (* 2 (tovia:boxel)))
+                         :hit
+                         :energy)))))))
   (:method (s w)))
 
 (defgeneric key-action (key subject win))
@@ -551,7 +557,8 @@
            *damage* nil)
      (multiple-value-bind (w h)
          (sdl2:get-window-size win)
-       (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))))
+       (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))
+       (tovia:add (tovia:sprite :snail win :x 0 :y (- h (tovia:boxel))))))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
