@@ -98,7 +98,8 @@
   (def :preliminary "effects/preliminary.png")
   (def :guard "effects/guard.png")
   (def :snail "characters/snail.png" snail :response 8)
-  (def :wood-golem "characters/wood-golem.png" wood-golem :response 32))
+  (def :wood-golem "characters/wood-golem.png" wood-golem :response 32)
+  (def :smoke "effects/smoke.png"))
 
 (tovia:defsprite :preliminary tovia:status-effect
   :unit 1/8
@@ -219,6 +220,14 @@
                                 damage)))
              (tovia:knock-backer 10)))
 
+(tovia:defsprite :smoke tovia:radiation
+  :unit 1/8
+  :texture (fude-gl:find-texture :smoke)
+  :stepper (alexandria:circular-list '(0 0) '(1 0) '(2 0))
+  :time 90
+  :projection #'fude-gl:ortho
+  :effects (list (tovia:damager 5)))
+
 (tovia:defsprite :barrage tovia:melee
   :unit 1/8
   :texture (fude-gl:find-texture :barrage)
@@ -284,6 +293,13 @@
   (:method ((subject tovia:being) (win sdl2-ffi:sdl-window)
             (arm (eql :step-in-hit)) &rest args)
     (apply #'call-next-method subject win :hit args))
+  (:method ((subject tovia:being) (win sdl2-ffi:sdl-window) (arm (eql :spore))
+            &rest args)
+    (dolist (dir '(:n :s :w :e :nw :ne :sw :se))
+      (tovia:add
+        (apply #'tovia:sprite :smoke win :x (quaspar:x subject) :y
+               (quaspar:y subject) :who subject :direction dir
+               :allow-other-keys t args))))
   (:method ((subject tovia:being) (win sdl2-ffi:sdl-window) arm &rest args)
     (tovia:add
       (multiple-value-bind (x y)
@@ -305,6 +321,9 @@
   (:method ((s tovia:projectile) (win sdl2-ffi:sdl-window))
     (decf (tovia:current (tovia:life s)))
     (tovia:move s win))
+  (:method ((s tovia:radiation) (win sdl2-ffi:sdl-window))
+    (decf (tovia:current (tovia:life s)))
+    (tovia:move s win))
   (:method ((s tovia:npc) (win sdl2-ffi:sdl-window))
     (ecase (random 10)
       (0 (attack s win :hit))
@@ -324,7 +343,7 @@
              (attack s win
                      (if (<= distance (* 2 (tovia:boxel)))
                          :hit
-                         :energy)))))))
+                         :spore)))))))
   (:method ((s snail) (win sdl2-ffi:sdl-window))
     (let ((mashrooms
            (uiop:while-collecting (acc)
