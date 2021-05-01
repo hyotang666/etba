@@ -315,6 +315,32 @@
                      (if (<= distance (* 2 (tovia:boxel)))
                          :hit
                          :energy)))))))
+  (:method ((s snail) (win sdl2-ffi:sdl-window))
+    (let ((mashrooms
+           (uiop:while-collecting (acc)
+             (quaspar:do-lqtree (e tovia:*colliders*)
+               (when (typep e 'mashroom)
+                 (acc e))))))
+      (if mashrooms
+          (let ((nearest
+                 (reduce
+                   (lambda (champ challenger)
+                     (let ((challenge (tovia:distance challenger s)))
+                       (if (< (cdr champ) challenge)
+                           champ
+                           (rplaca (rplacd champ challenge) challenger))))
+                   (cdr mashrooms)
+                   :initial-value (cons (car mashrooms)
+                                        (tovia:distance (car mashrooms) s)))))
+            (tovia:move s win
+                        :direction (tovia:target-direction s (car nearest))))
+          (apply #'tovia:reserve-actions s
+                 (loop :with direction
+                             = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
+                       :repeat tovia:*box-size*
+                       :collect (cons :move-box (lambda (s w)
+                                                  (tovia:move s w
+                                                              :direction direction))))))))
   (:method (s w)))
 
 (defgeneric key-action (key subject win))
