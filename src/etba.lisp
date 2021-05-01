@@ -50,6 +50,15 @@
 
 (defclass snail (tovia:npc) ())
 
+(defclass wood-golem (tovia:npc) ((territory :reader territory)))
+
+(defmethod initialize-instance :after ((o wood-golem) &key x y)
+  (setf (slot-value o 'territory) (3d-vectors:vec2 x y)))
+
+(defmethod quaspar:x ((o 3d-vectors:vec2)) (3d-vectors:vx o))
+
+(defmethod quaspar:y ((o 3d-vectors:vec2)) (3d-vectors:vy o))
+
 (defparameter *damage* nil)
 
 (defclass damage ()
@@ -88,7 +97,8 @@
   (def :mashroom "characters/mashroom.png" mashroom :response 8)
   (def :preliminary "effects/preliminary.png")
   (def :guard "effects/guard.png")
-  (def :snail "characters/snail.png" snail :response 8))
+  (def :snail "characters/snail.png" snail :response 8)
+  (def :wood-golem "characters/wood-golem.png" wood-golem :response 32))
 
 (tovia:defsprite :preliminary tovia:status-effect
   :unit 1/8
@@ -343,6 +353,41 @@
                                                               :direction direction))))))))
   (:method (s w)))
 
+(defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
+  (let* ((range 6)
+         (invaders
+          (uiop:while-collecting (acc)
+            (quaspar:do-lqtree (e tovia:*colliders*)
+              (when (and (not (eq e s)) (not (typep e 'tovia:phenomenon)))
+                (multiple-value-bind (see? distance)
+                    (tovia:in-sight-p (territory s) e (* range (tovia:boxel)))
+                  (when see?
+                    (acc (cons distance e)))))))))
+    (if invaders
+        (let ((invader
+               (cdr
+                 (reduce
+                   (lambda (champ challenger)
+                     (if (< (car champ) (car challenger))
+                         champ
+                         challenger))
+                   invaders))))
+          (if (tovia:in-sight-p s invader (* 1.5 (tovia:boxel)))
+              (attack s win :hit)
+              (tovia:move s win
+                          :direction (tovia:target-direction s invader))))
+        (if (tovia:in-sight-p (territory s) s (* range (tovia:boxel)))
+            (apply #'tovia:reserve-actions s
+                   (loop :with direction
+                               = (aref #(:s :n :w :e :nw :ne :sw :se)
+                                       (random 8))
+                         :repeat tovia:*box-size*
+                         :collect (cons :move-box (lambda (s w)
+                                                    (tovia:move s w
+                                                                :direction direction)))))
+            (tovia:move s win
+                        :direction (tovia:target-direction s (territory s)))))))
+
 (defgeneric key-action (key subject win))
 
 (defmethod key-action
@@ -584,7 +629,8 @@
      (multiple-value-bind (w h)
          (sdl2:get-window-size win)
        (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))
-       (tovia:add (tovia:sprite :snail win :x 0 :y (- h (tovia:boxel))))))
+       (tovia:add (tovia:sprite :snail win :x 0 :y (- h (tovia:boxel))))
+       (tovia:add (tovia:sprite :wood-golem win :x (- w (tovia:boxel)) :y 0))))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
