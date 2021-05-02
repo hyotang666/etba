@@ -399,7 +399,10 @@
                          challenger))
                    invaders))))
           (if (tovia:in-sight-p s invader (* 1.5 (tovia:boxel)))
-              (attack s win :hit)
+              (progn
+               (setf (tovia:last-direction s)
+                       (tovia:target-direction s invader))
+               (attack s win :hit))
               (tovia:move s win
                           :direction (tovia:target-direction s invader))))
         (if (tovia:in-sight-p (territory s) s (* range (tovia:boxel)))
