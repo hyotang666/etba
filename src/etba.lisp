@@ -89,6 +89,7 @@
                        :projection #'fude-gl:ortho
                        ,@args))))))
   (def :earth "backgrounds/earth.png")
+  (def :magic-circle "backgrounds/magic-circle.png")
   (def :romius "characters/romius.png" tovia:player :key-tracker
    (make-instance 'key-tracker))
   (def :hit "effects/hit.png")
@@ -100,6 +101,12 @@
   (def :snail "characters/snail.png" snail :response 8)
   (def :wood-golem "characters/wood-golem.png" wood-golem :response 32)
   (def :smoke "effects/smoke.png"))
+
+(tovia:defsprite :magic-circle tovia:trigger
+  :unit 1
+  :texture (fude-gl:find-texture :magic-circle)
+  :stepper (alexandria:circular-list '(0 0))
+  :projection #'fude-gl:ortho)
 
 (tovia:defsprite :preliminary tovia:status-effect
   :unit 1/8
@@ -640,19 +647,59 @@
 
 ;;;; TRANSITIONS
 
+(defun config-monsters (win)
+  (multiple-value-bind (w h)
+      (sdl2:get-window-size win)
+    (let ((npcs #(:mashroom :snail :wood-golem)))
+      (dotimes (n (ceiling (tovia:pnd-random 10)))
+        (tovia:add
+          (tovia:sprite (aref npcs (random (length npcs))) win
+                        :x (random (floor (- w (tovia:boxel))))
+                        :y (random (floor (- h (tovia:boxel))))))))))
+
+(defun draw (win)
+  ;; background
+  (fude-gl:with-uniforms ((tex :unit 0))
+      'background-shader
+    (setf tex (fude-gl:find-texture :earth))
+    (fude-gl:draw 'tile))
+  ;; beings then effects.
+  (let (effects)
+    (quaspar:traverse tovia:*colliders*
+                      (lambda (list)
+                        (dolist (elt list)
+                          (etypecase elt
+                            (tovia:player) ; do-nothing.
+                            ((or tovia:being tovia:trigger) (fude-gl:draw elt))
+                            (tovia:phenomenon (push elt effects))))))
+    (fude-gl:draw *player*)
+    (mapc #'fude-gl:draw effects))
+  (damage-pop-up)
+  (status-bar *player* win))
+
 (defun test (win)
   (uiop:nest
-    (progn
-     (setf *player* (tovia:add (tovia:sprite :romius win))
-           *damage* nil)
-     (multiple-value-bind (w h)
-         (sdl2:get-window-size win)
-       (let ((npcs #(:mashroom :snail :wood-golem)))
-         (dotimes (n (ceiling (tovia:pnd-random 10)))
-           (tovia:add
-             (tovia:sprite (aref npcs (random (length npcs))) win
-                           :x (random (floor (- w (tovia:boxel))))
-                           :y (random (floor (- h (tovia:boxel))))))))))
+    (let (clear))
+    (flet ((next-stage ()
+             (unless clear
+               (setf clear t)
+               (multiple-value-bind (w h)
+                   (sdl2:get-window-size win)
+                 (tovia:add
+                   (tovia:sprite :magic-circle win
+                                 :x (random (floor (- w (tovia:boxel))))
+                                 :y (random (floor (- h (tovia:boxel))))
+                                 :effects (list
+                                            (lambda (trigger being)
+                                              (declare (ignore being))
+                                              (setf clear nil
+                                                    (tovia:current
+                                                      (tovia:life trigger))
+                                                      0)
+                                              (config-monsters win)))))))))
+      (setf *player* (tovia:add (tovia:sprite :romius win))
+            *damage* nil)
+      (config-monsters win))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
@@ -667,33 +714,14 @@
       ;; collision
       (collision)
       ;;;; draw
-      ;; background
-      (fude-gl:with-uniforms ((tex :unit 0))
-          'background-shader
-        (setf tex (fude-gl:find-texture :earth))
-        (fude-gl:draw 'tile))
-      ;; beings then effects.
-      (let (effects)
-        (quaspar:traverse tovia:*colliders*
-                          (lambda (list)
-                            (dolist (elt list)
-                              (etypecase elt
-                                (tovia:player) ; do-nothing.
-                                (tovia:being (fude-gl:draw elt))
-                                (tovia:phenomenon (push elt effects))))))
-        (fude-gl:draw *player*)
-        (mapc #'fude-gl:draw effects))
-      (damage-pop-up)
-      (status-bar *player* win)
+      (draw win)
       ;;;; cleanup.
       (tovia:delete-lives)
       ;; gameover?
       (when (tovia:deadp *player*)
         (signal 'tovia:sequence-transition :next #'game-over))
       ;; clear?
-      (quaspar:do-lqtree (o tovia:*colliders*
-                          (signal 'tovia:sequence-transition
-                                  :next #'congratulations))
+      (quaspar:do-lqtree (o tovia:*colliders* (next-stage))
         (when
           ;; as enemy survives-p
           (and (not (typep o 'tovia:player)) (typep o 'tovia:being))
@@ -709,28 +737,6 @@
       (:idle ()
         (when init
           (fude-gl:render-text "Game over"
-                               :x :center
-                               :y :center
-                               :scale tovia:*pixel-size*
-                               :win win)
-          (fude-gl:render-text "Push any key."
-                               :x :center
-                               :y (* 3 (tovia:boxel))
-                               :win win)
-          (sdl2:gl-swap-window win)
-          (setq init nil))
-        (sleep 0.5)))))
-
-(defun congratulations (win)
-  (let ((init t))
-    (sdl2:with-event-loop (:method :poll)
-      (:quit ()
-        t)
-      (:keydown ()
-        (signal 'tovia:sequence-transition :next #'start))
-      (:idle ()
-        (when init
-          (fude-gl:render-text "You win!"
                                :x :center
                                :y :center
                                :scale tovia:*pixel-size*
