@@ -647,9 +647,12 @@
            *damage* nil)
      (multiple-value-bind (w h)
          (sdl2:get-window-size win)
-       (tovia:add (tovia:sprite :mashroom win :x (/ w 2) :y (/ h 2)))
-       (tovia:add (tovia:sprite :snail win :x 0 :y (- h (tovia:boxel))))
-       (tovia:add (tovia:sprite :wood-golem win :x (- w (tovia:boxel)) :y 0))))
+       (let ((npcs #(:mashroom :snail :wood-golem)))
+         (dotimes (n (ceiling (tovia:pnd-random 10)))
+           (tovia:add
+             (tovia:sprite (aref npcs (random (length npcs))) win
+                           :x (random (floor (- w (tovia:boxel))))
+                           :y (random (floor (- h (tovia:boxel))))))))))
     (sdl2:with-event-loop (:method :poll)
       (:quit ()
         t))
