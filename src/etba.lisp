@@ -49,7 +49,7 @@
 (progn
  .
  #.(mapcar (lambda (name) `(defclass ,name (tovia:npc) ()))
-           '(mashroom snail ameba rat mandrake snake beetle)))
+           '(mashroom snail ameba rat mandrake snake beetle worm)))
 
 (defclass wood-golem (tovia:npc) ((territory :reader territory)))
 
@@ -109,7 +109,8 @@
   (def :mandrake "characters/mandrake.png" mandrake :response 32)
   (def :snake "characters/snake.png" snake :response 32)
   (def :beetle "characters/beetle.png" beetle :response 16)
-  (def :cat "characters/cat.png" cat :response 64))
+  (def :cat "characters/cat.png" cat :response 64)
+  (def :worm "characters/worm.png" worm :response 8))
 
 (tovia:defsprite :magic-circle tovia:trigger
   :unit 1
@@ -506,6 +507,14 @@
                            :collect (cons :move-box (lambda (s w)
                                                       (tovia:move s w
                                                                   :direction direction)))))))))
+  (:method ((s worm) (win sdl2-ffi:sdl-window))
+    (apply #'tovia:reserve-actions s
+           (loop :with direction
+                       = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
+                 :repeat tovia:*box-size*
+                 :collect (cons :move-box (lambda (s w)
+                                            (tovia:move s w
+                                                        :direction direction))))))
   (:method (s w)))
 
 (defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
@@ -784,7 +793,7 @@
       (sdl2:get-window-size win)
     (let ((npcs
            #(:mashroom :snail :wood-golem :ameba :rat :mandrake :snake :beetle
-             :cat)))
+             :cat :worm)))
       (dotimes (n (ceiling (tovia:pnd-random 10)))
         (tovia:add
           (tovia:sprite (aref npcs (random (length npcs))) win
