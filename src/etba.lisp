@@ -467,7 +467,7 @@
               (tovia:move s win
                           :direction (tovia:target-direction s
                                                              (tovia:nearest
-                                                               target)))
+                                                               home)))
               (apply #'tovia:reserve-actions s
                      (loop :with direction
                                  = (aref #(:s :n :w :e :nw :ne :sw :se)
