@@ -10,6 +10,7 @@
    "fude-gl" ; Cl-opengl framework.
    "tovia" ; Top View Action framework.
    "quaspar" ; Collision detection.
+   "treat-as-circle" ; Treat sequences as circle.
    )
   :pathname
   "src/"
