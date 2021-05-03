@@ -49,7 +49,7 @@
 (progn
  .
  #.(mapcar (lambda (name) `(defclass ,name (tovia:npc) ()))
-           '(mashroom snail ameba rat)))
+           '(mashroom snail ameba rat mandrake)))
 
 (defclass wood-golem (tovia:npc) ((territory :reader territory)))
 
@@ -103,7 +103,8 @@
   (def :wood-golem "characters/wood-golem.png" wood-golem :response 32)
   (def :smoke "effects/smoke.png")
   (def :ameba "characters/ameba.png" ameba :response 8)
-  (def :rat "characters/rat.png" rat :response 64))
+  (def :rat "characters/rat.png" rat :response 64)
+  (def :mandrake "characters/mandrake.png" mandrake :response 32))
 
 (tovia:defsprite :magic-circle tovia:trigger
   :unit 1
@@ -401,6 +402,20 @@
                        :collect (cons :move-box (lambda (s w)
                                                   (tovia:move s w
                                                               :direction direction))))))))
+  (:method ((s mandrake) (win sdl2-ffi:sdl-window))
+    (let ((target (tovia:in-sight-beings s (* 4 (tovia:boxel)))))
+      (if target
+          (let ((nearest (tovia:nearest target)))
+            (setf (tovia:last-direction s) (tovia:target-direction s nearest))
+            (when (zerop (random 6))
+              (attack s win :energy)))
+          (apply #'tovia:reserve-actions s
+                 (loop :with direction
+                             = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
+                       :repeat tovia:*box-size*
+                       :collect (cons :move-box (lambda (s w)
+                                                  (tovia:move s w
+                                                              :direction direction))))))))
   (:method (s w)))
 
 (defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
@@ -677,7 +692,7 @@
 (defun config-monsters (win)
   (multiple-value-bind (w h)
       (sdl2:get-window-size win)
-    (let ((npcs #(:mashroom :snail :wood-golem :ameba :rat)))
+    (let ((npcs #(:mashroom :snail :wood-golem :ameba :rat :mandrake)))
       (dotimes (n (ceiling (tovia:pnd-random 10)))
         (tovia:add
           (tovia:sprite (aref npcs (random (length npcs))) win
