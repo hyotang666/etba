@@ -46,9 +46,9 @@
 (defun image-pathname (name)
   (truename (merge-pathnames name *default-image-directory*)))
 
-(defclass mashroom (tovia:npc) ())
-
-(defclass snail (tovia:npc) ())
+(progn
+ .
+ #.(mapcar (lambda (name) `(defclass ,name (tovia:npc) ())) '(mashroom snail)))
 
 (defclass wood-golem (tovia:npc) ((territory :reader territory)))
 
