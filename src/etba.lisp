@@ -48,7 +48,8 @@
 
 (progn
  .
- #.(mapcar (lambda (name) `(defclass ,name (tovia:npc) ())) '(mashroom snail)))
+ #.(mapcar (lambda (name) `(defclass ,name (tovia:npc) ()))
+           '(mashroom snail ameba)))
 
 (defclass wood-golem (tovia:npc) ((territory :reader territory)))
 
@@ -100,7 +101,8 @@
   (def :guard "effects/guard.png")
   (def :snail "characters/snail.png" snail :response 8)
   (def :wood-golem "characters/wood-golem.png" wood-golem :response 32)
-  (def :smoke "effects/smoke.png"))
+  (def :smoke "effects/smoke.png")
+  (def :ameba "characters/ameba.png" ameba :response 8))
 
 (tovia:defsprite :magic-circle tovia:trigger
   :unit 1
@@ -360,6 +362,19 @@
       (if mashrooms
           (let ((nearest (tovia:nearest mashrooms)))
             (tovia:move s win :direction (tovia:target-direction s nearest)))
+          (apply #'tovia:reserve-actions s
+                 (loop :with direction
+                             = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
+                       :repeat tovia:*box-size*
+                       :collect (cons :move-box (lambda (s w)
+                                                  (tovia:move s w
+                                                              :direction direction))))))))
+  (:method ((s ameba) (win sdl2-ffi:sdl-window))
+    (let ((targets (tovia:in-sight-beings s (tovia:boxel))))
+      (if targets
+          (let ((nearest (tovia:nearest targets)))
+            (setf (tovia:last-direction s) (tovia:target-direction s nearest))
+            (attack s win :hit))
           (apply #'tovia:reserve-actions s
                  (loop :with direction
                              = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
@@ -643,7 +658,7 @@
 (defun config-monsters (win)
   (multiple-value-bind (w h)
       (sdl2:get-window-size win)
-    (let ((npcs #(:mashroom :snail :wood-golem)))
+    (let ((npcs #(:mashroom :snail :wood-golem :ameba)))
       (dotimes (n (ceiling (tovia:pnd-random 10)))
         (tovia:add
           (tovia:sprite (aref npcs (random (length npcs))) win
