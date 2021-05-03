@@ -49,7 +49,7 @@
 (progn
  .
  #.(mapcar (lambda (name) `(defclass ,name (tovia:npc) ()))
-           '(mashroom snail ameba rat mandrake snake)))
+           '(mashroom snail ameba rat mandrake snake beetle)))
 
 (defclass wood-golem (tovia:npc) ((territory :reader territory)))
 
@@ -105,7 +105,8 @@
   (def :ameba "characters/ameba.png" ameba :response 8)
   (def :rat "characters/rat.png" rat :response 64)
   (def :mandrake "characters/mandrake.png" mandrake :response 32)
-  (def :snake "characters/snake.png" snake :response 32))
+  (def :snake "characters/snake.png" snake :response 32)
+  (def :beetle "characters/beetle.png" beetle :response 16))
 
 (tovia:defsprite :magic-circle tovia:trigger
   :unit 1
@@ -440,6 +441,38 @@
                        :collect (cons :move-box (lambda (s w)
                                                   (tovia:move s w
                                                               :direction direction))))))))
+  (:method ((s beetle) (win sdl2-ffi:sdl-window))
+    (multiple-value-bind (target home)
+        (uiop:while-collecting (snail wood)
+          (tovia:do-beings (b)
+            (multiple-value-bind (see? distance)
+                (tovia:in-sight-p s b (* 3 (tovia:boxel)))
+              (when see?
+                (typecase b
+                  (wood-golem (wood (cons distance b)))
+                  (snail (snail (cons distance b))))))))
+      (if target
+          (let ((nearest (tovia:nearest target)))
+            (if (tovia:in-sight-p s nearest (tovia:boxel))
+                (when (zerop (random 8))
+                  (setf (tovia:last-direction s)
+                          (tovia:target-direction s nearest))
+                  (attack s win :barrage))
+                (tovia:move s win
+                            :direction (tovia:target-direction s nearest))))
+          (if home
+              (tovia:move s win
+                          :direction (tovia:target-direction s
+                                                             (tovia:nearest
+                                                               target)))
+              (apply #'tovia:reserve-actions s
+                     (loop :with direction
+                                 = (aref #(:s :n :w :e :nw :ne :sw :se)
+                                         (random 8))
+                           :repeat tovia:*box-size*
+                           :collect (cons :move-box (lambda (s w)
+                                                      (tovia:move s w
+                                                                  :direction direction)))))))))
   (:method (s w)))
 
 (defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
@@ -716,7 +749,9 @@
 (defun config-monsters (win)
   (multiple-value-bind (w h)
       (sdl2:get-window-size win)
-    (let ((npcs #(:mashroom :snail :wood-golem :ameba :rat :mandrake :snake)))
+    (let ((npcs
+           #(:mashroom :snail :wood-golem :ameba :rat :mandrake :snake
+             :beetle)))
       (dotimes (n (ceiling (tovia:pnd-random 10)))
         (tovia:add
           (tovia:sprite (aref npcs (random (length npcs))) win
