@@ -354,22 +354,12 @@
   (:method ((s snail) (win sdl2-ffi:sdl-window))
     (let ((mashrooms
            (uiop:while-collecting (acc)
-             (quaspar:do-lqtree (e tovia:*colliders*)
+             (tovia:do-beings (e)
                (when (typep e 'mashroom)
-                 (acc e))))))
+                 (acc (cons (tovia:distance s e) e)))))))
       (if mashrooms
-          (let ((nearest
-                 (reduce
-                   (lambda (champ challenger)
-                     (let ((challenge (tovia:distance challenger s)))
-                       (if (< (cdr champ) challenge)
-                           champ
-                           (rplaca (rplacd champ challenge) challenger))))
-                   (cdr mashrooms)
-                   :initial-value (cons (car mashrooms)
-                                        (tovia:distance (car mashrooms) s)))))
-            (tovia:move s win
-                        :direction (tovia:target-direction s (car nearest))))
+          (let ((nearest (tovia:nearest mashrooms)))
+            (tovia:move s win :direction (tovia:target-direction s nearest)))
           (apply #'tovia:reserve-actions s
                  (loop :with direction
                              = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
