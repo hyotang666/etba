@@ -370,26 +370,14 @@
       (if mashrooms
           (let ((nearest (tovia:nearest mashrooms)))
             (tovia:move s win :direction (tovia:target-direction s nearest)))
-          (apply #'tovia:reserve-actions s
-                 (loop :with direction
-                             = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
-                       :repeat tovia:*box-size*
-                       :collect (cons :move-box (lambda (s w)
-                                                  (tovia:move s w
-                                                              :direction direction))))))))
+          (tovia:walk-random s))))
   (:method ((s ameba) (win sdl2-ffi:sdl-window))
     (let ((targets (tovia:in-sight-beings s (tovia:boxel))))
       (if targets
           (let ((nearest (tovia:nearest targets)))
             (setf (tovia:last-direction s) (tovia:target-direction s nearest))
             (attack s win :hit))
-          (apply #'tovia:reserve-actions s
-                 (loop :with direction
-                             = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
-                       :repeat tovia:*box-size*
-                       :collect (cons :move-box (lambda (s w)
-                                                  (tovia:move s w
-                                                              :direction direction))))))))
+          (tovia:walk-random s))))
   (:method ((s rat) (win sdl2-ffi:sdl-window))
     (let* ((dir #(:n :ne :e :se :s :sw :w :nw))
            (treat-as-circle::*length* 8)
@@ -401,13 +389,7 @@
                                    (error "Internal logical error."))))))
       (if (not wall)
           (tovia:move s win :direction (tovia:last-direction s))
-          (apply #'tovia:reserve-actions s
-                 (loop :with direction
-                             = (treat-as-circle::%elt-as-circle dir wall)
-                       :repeat tovia:*box-size*
-                       :collect (cons :move-box (lambda (s w)
-                                                  (tovia:move s w
-                                                              :direction direction))))))))
+          (tovia:walk-random s))))
   (:method ((s mandrake) (win sdl2-ffi:sdl-window))
     (let ((target (tovia:in-sight-beings s (* 4 (tovia:boxel)))))
       (if target
@@ -415,13 +397,7 @@
             (setf (tovia:last-direction s) (tovia:target-direction s nearest))
             (when (zerop (random 6))
               (attack s win :energy)))
-          (apply #'tovia:reserve-actions s
-                 (loop :with direction
-                             = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
-                       :repeat tovia:*box-size*
-                       :collect (cons :move-box (lambda (s w)
-                                                  (tovia:move s w
-                                                              :direction direction))))))))
+          (tovia:walk-random s))))
   (:method ((s snake) (win sdl2-ffi:sdl-window))
     (let ((target
            (uiop:while-collecting (acc)
@@ -438,13 +414,7 @@
                   (attack s win :hit))
                 (tovia:move s win
                             :direction (tovia:target-direction s nearest))))
-          (apply #'tovia:reserve-actions s
-                 (loop :with direction
-                             = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
-                       :repeat tovia:*box-size*
-                       :collect (cons :move-box (lambda (s w)
-                                                  (tovia:move s w
-                                                              :direction direction))))))))
+          (tovia:walk-random s))))
   (:method ((s beetle) (win sdl2-ffi:sdl-window))
     (multiple-value-bind (target home)
         (uiop:while-collecting (snail wood)
@@ -469,14 +439,7 @@
                           :direction (tovia:target-direction s
                                                              (tovia:nearest
                                                                home)))
-              (apply #'tovia:reserve-actions s
-                     (loop :with direction
-                                 = (aref #(:s :n :w :e :nw :ne :sw :se)
-                                         (random 8))
-                           :repeat tovia:*box-size*
-                           :collect (cons :move-box (lambda (s w)
-                                                      (tovia:move s w
-                                                                  :direction direction)))))))))
+              (tovia:walk-random s)))))
   (:method ((s cat) (win sdl2-ffi:sdl-window))
     (if (victim s)
         (if (zerop (random 8))
@@ -499,22 +462,9 @@
                 (setf (victim s) nearest)
                 (tovia:move s win
                             :direction (tovia:target-direction s nearest)))
-              (apply #'tovia:reserve-actions s
-                     (loop :with direction
-                                 = (aref #(:s :n :w :e :nw :ne :sw :se)
-                                         (random 8))
-                           :repeat tovia:*box-size*
-                           :collect (cons :move-box (lambda (s w)
-                                                      (tovia:move s w
-                                                                  :direction direction)))))))))
-  (:method ((s worm) (win sdl2-ffi:sdl-window))
-    (apply #'tovia:reserve-actions s
-           (loop :with direction
-                       = (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))
-                 :repeat tovia:*box-size*
-                 :collect (cons :move-box (lambda (s w)
-                                            (tovia:move s w
-                                                        :direction direction))))))
+              (when (zerop (random 5))
+                (tovia:walk-random s))))))
+  (:method ((s worm) (win sdl2-ffi:sdl-window)) (tovia:walk-random s))
   (:method (s w)))
 
 (defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
@@ -544,14 +494,7 @@
               (tovia:move s win
                           :direction (tovia:target-direction s invader))))
         (if (tovia:in-sight-p (territory s) s (* range (tovia:boxel)))
-            (apply #'tovia:reserve-actions s
-                   (loop :with direction
-                               = (aref #(:s :n :w :e :nw :ne :sw :se)
-                                       (random 8))
-                         :repeat tovia:*box-size*
-                         :collect (cons :move-box (lambda (s w)
-                                                    (tovia:move s w
-                                                                :direction direction)))))
+            (tovia:walk-random s)
             (tovia:move s win
                         :direction (tovia:target-direction s (territory s)))))))
 
