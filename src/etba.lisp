@@ -389,15 +389,26 @@
           (setf (tovia:last-direction s)
                   (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))))))
   (:method ((s snail) (win sdl2-ffi:sdl-window))
-    (let ((mashrooms
+    (let ((targets
            (uiop:while-collecting (acc)
              (tovia:do-beings (e)
-               (when (typep e 'mashroom)
+               (when (typep e '(or ameba mashroom wood-golem))
                  (acc (cons (tovia:distance s e) e)))))))
-      (if mashrooms
-          (let ((nearest (tovia:nearest mashrooms)))
-            (tovia:move s win :direction (tovia:target-direction s nearest)))
-          (tovia:walk-random s))))
+      (if (null targets)
+          (tovia:walk-random s)
+          (let ((nearest (tovia:nearest targets)))
+            (if (not (tovia:in-sight-p s nearest (tovia:boxel)))
+                (tovia:move s win
+                            :direction (tovia:target-direction s nearest))
+                (etypecase nearest
+                  ((or mashroom wood-golem)
+                   (setf (tovia:last-direction s)
+                           (tovia:target-direction s nearest))
+                   (attack s win :hit))
+                  (ameba
+                   (tovia:move s win
+                               :direction (tovia:target-direction s
+                                                                  nearest)))))))))
   (:method ((s ameba) (win sdl2-ffi:sdl-window))
     (let ((targets (tovia:in-sight-beings s (tovia:boxel))))
       (if targets
