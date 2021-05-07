@@ -98,12 +98,21 @@
   (def :hit "effects/hit.png")
   (def :energy "effects/energy.png")
   (def :barrage "effects/barrage.png")
-  (def :mashroom "characters/mashroom.png" mashroom :response 8)
+  (def :mashroom "characters/mashroom.png" mashroom :response 8 :reactions
+   (list :spore (lambda (mashroom who)
+                  (flet ((do-attack (s w)
+                           (setf (tovia:last-direction s)
+                                   (tovia:target-direction s who))
+                           (attack s w :near-spore)))
+                    (unless (tovia:action-reserved-p :attack mashroom)
+                      (tovia:reserve-actions mashroom
+                                             (cons :attack #'do-attack)))))))
   (def :preliminary "effects/preliminary.png")
   (def :guard "effects/guard.png")
   (def :snail "characters/snail.png" snail :response 8)
   (def :wood-golem "characters/wood-golem.png" wood-golem :response 32)
   (def :smoke "effects/smoke.png")
+  (def :spore "effects/spore.png")
   (def :ameba "characters/ameba.png" ameba :response 8)
   (def :rat "characters/rat.png" rat :response 64)
   (def :mandrake "characters/mandrake.png" mandrake :response 32)
@@ -254,6 +263,14 @@
   :life 40
   :effects (list (tovia:damager 5) (tovia:knock-backer 10)))
 
+(tovia:defsprite :spore tovia:effect
+  :unit 1/8
+  :texture (fude-gl:find-texture :spore)
+  :stepper (alexandria:circular-list '(0 0) '(1 0) '(2 0) nil)
+  :projection #'fude-gl:ortho
+  :timer 45
+  :effects (list (tovia:damager 5)))
+
 (defgeneric attack (subject win arm &rest args)
   (:method :around ((s tovia:npc) (win sdl2-ffi:sdl-window) arm &rest args)
     (declare (ignore args))
@@ -317,6 +334,17 @@
         (apply #'tovia:sprite :smoke win :x (quaspar:x subject) :y
                (quaspar:y subject) :who subject :direction dir
                :allow-other-keys t args))))
+  (:method ((subject tovia:being) (win sdl2-ffi:sdl-window)
+            (arm (eql :near-spore)) &rest args)
+    (let ((direction (tovia:last-direction subject)))
+      (dolist (dir '(:n :s :w :e :nw :ne :sw :se))
+        (setf (tovia:last-direction subject) dir)
+        (multiple-value-bind (x y)
+            (tovia:front subject)
+          (tovia:add
+            (apply #'tovia:sprite :spore win :x x :y y :who subject
+                   :allow-other-keys t args)))
+        (setf (tovia:last-direction subject) direction))))
   (:method ((subject tovia:being) (win sdl2-ffi:sdl-window) arm &rest args)
     (tovia:add
       (multiple-value-bind (x y)
@@ -349,18 +377,17 @@
       ((3 4 5 6 7 8 9)
        (tovia:move s win :direction (tovia:target-direction s *player*)))))
   (:method ((s mashroom) (win sdl2-ffi:sdl-window))
-    (multiple-value-bind (see? distance)
-        (tovia:in-sight-p s *player* (* (tovia:boxel) 4))
-      (if (not see?)
+    (let ((wood
+           (uiop:while-collecting (collect)
+             (tovia:do-beings (b)
+               (when (typep b 'wood-golem)
+                 (collect (cons (tovia:distance s b) b)))))))
+      (if wood
+          (tovia:move s win
+                      :direction (tovia:target-direction s
+                                                         (tovia:nearest wood)))
           (setf (tovia:last-direction s)
-                  (aref #(:s :n :w :e :nw :ne :sw :se) (random 8)))
-          (progn
-           (setf (tovia:last-direction s) (tovia:target-direction s *player*))
-           (when (zerop (random 5))
-             (attack s win
-                     (if (<= distance (* 2 (tovia:boxel)))
-                         :hit
-                         :spore)))))))
+                  (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))))))
   (:method ((s snail) (win sdl2-ffi:sdl-window))
     (let ((mashrooms
            (uiop:while-collecting (acc)
@@ -466,6 +493,18 @@
                 (tovia:walk-random s))))))
   (:method ((s worm) (win sdl2-ffi:sdl-window)) (tovia:walk-random s))
   (:method (s w)))
+
+(defmethod tovia:react :before ((e tovia:phenomenon) (s mashroom))
+  (when (and (not (tovia:action-reserved-p :attack s))
+             (not (eq s (tovia:who e))))
+    (tovia:reserve-actions s
+                           (cons :attack (lambda (s w) (attack s w :spore))))))
+
+(defmethod tovia:react :before ((s mashroom) (e tovia:phenomenon))
+  (when (and (not (tovia:action-reserved-p :attack s))
+             (not (eq s (tovia:who e))))
+    (tovia:reserve-actions s
+                           (cons :attack (lambda (s w) (attack s w :spore))))))
 
 (defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
   (let* ((range 6)
