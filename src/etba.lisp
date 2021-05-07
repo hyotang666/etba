@@ -114,7 +114,7 @@
   (def :smoke "effects/smoke.png")
   (def :spore "effects/spore.png")
   (def :ameba "characters/ameba.png" ameba :response 8)
-  (def :rat "characters/rat.png" rat :response 64)
+  (def :rat "characters/rat.png" rat :response 96)
   (def :mandrake "characters/mandrake.png" mandrake :response 32)
   (def :snake "characters/snake.png" snake :response 32)
   (def :beetle "characters/beetle.png" beetle :response 16)
@@ -417,17 +417,23 @@
             (attack s win :hit))
           (tovia:walk-random s))))
   (:method ((s rat) (win sdl2-ffi:sdl-window))
-    (let* ((dir #(:n :ne :e :se :s :sw :w :nw))
-           (treat-as-circle::*length* 8)
-           (wall
-            (loop :for d :across dir
-                  :unless (tovia:forwardablep s win d)
-                    :return (+ (aref #(2 -2) (random 2))
-                               (or (position d dir)
-                                   (error "Internal logical error."))))))
-      (if (not wall)
-          (tovia:move s win :direction (tovia:last-direction s))
-          (tovia:walk-random s))))
+    (let ((beings (tovia:in-sight-beings s (tovia:boxel)))
+          (dir #(:n :ne :e :se :s :sw :w :nw)))
+      (cond
+        (beings
+         (setf (tovia:last-direction s)
+                 (tovia:target-direction s (tovia:nearest beings)))
+         (attack s win :hit))
+        ((tovia:forwardablep s win (tovia:last-direction s))
+         (tovia:move s win :direction (tovia:last-direction s)))
+        ((zerop (random 16))
+         (let ((index
+                (+ (aref #(2 -2) (random 2))
+                   (or (position (tovia:last-direction s) dir)
+                       (error "Internal logical error.")))))
+           (tovia:move s win
+                       :direction (treat-as-circle:elt-as-circle dir
+                                                                 index)))))))
   (:method ((s mandrake) (win sdl2-ffi:sdl-window))
     (let ((target (tovia:in-sight-beings s (* 4 (tovia:boxel)))))
       (if target
@@ -516,6 +522,22 @@
              (not (eq s (tovia:who e))))
     (tovia:reserve-actions s
                            (cons :attack (lambda (s w) (attack s w :spore))))))
+
+(defmethod tovia:react :before ((e tovia:phenomenon) (s rat))
+  (when (and (not (tovia:action-reserved-p :run s)) (not (eq s (tovia:who e))))
+    (tovia:reserve-actions s
+                           (cons :run (lambda (s w)
+                                        (tovia:move s w
+                                                    :direction (tovia:last-direction
+                                                                 e)))))))
+
+(defmethod tovia:react :before ((s rat) (e tovia:phenomenon))
+  (when (and (not (tovia:action-reserved-p :run s)) (not (eq s (tovia:who e))))
+    (tovia:reserve-actions s
+                           (cons :run (lambda (s w)
+                                        (tovia:move s w
+                                                    :direction (tovia:last-direction
+                                                                 e)))))))
 
 (defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
   (let* ((range 6)
