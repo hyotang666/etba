@@ -36,7 +36,8 @@
   (def :guard "guard.wav")
   (def :backstep "backstep.wav")
   (def :shield-bash "shield-bash.wav")
-  (def :spore "spore.wav"))
+  (def :spore "spore.wav")
+  (def :scream "scream.wav"))
 
 ;;;; TEXTURES
 
@@ -98,6 +99,7 @@
    (make-instance 'key-tracker))
   (def :hit "effects/hit.png")
   (def :energy "effects/energy.png")
+  (def :scream "effects/scream.png")
   (def :barrage "effects/barrage.png")
   (def :mashroom "characters/mashroom.png" mashroom :response 8 :reactions
    (list :spore (lambda (mashroom who)
@@ -247,6 +249,45 @@
                                 damage)))
              (tovia:knock-backer 10)))
 
+(tovia:defsprite :scream tovia:projectile
+  :unit 1/8
+  :texture (fude-gl:find-texture :scream)
+  :timer 90
+  :projection #'fude-gl:ortho
+  :effects (list
+             (tovia:damager 10
+                            (lambda (phenomenon victim damage)
+                              (let* ((guard
+                                      (tovia:find-coeff :guard (tovia:coeff-of
+                                                                 :status-effect victim)))
+                                     (coeff (hit-dir-coeff phenomenon victim))
+                                     (damage
+                                      (round
+                                        (if guard
+                                            (* damage coeff)
+                                            (* (1+ coeff)
+                                               (* damage
+                                                  (/
+                                                    (tovia:current
+                                                      (tovia:life phenomenon))
+                                                    (tovia:max-of
+                                                      (tovia:life
+                                                        phenomenon)))))))))
+                                (push
+                                 (make-instance 'damage
+                                                :x (quaspar:x victim)
+                                                :y (quaspar:y victim)
+                                                :damage (if guard
+                                                            (progn
+                                                             (tovia:play
+                                                               :guard)
+                                                             "GUARD!")
+                                                            (princ-to-string
+                                                              damage)))
+                                 *damage*)
+                                damage)))
+             (tovia:knock-backer 10)))
+
 (tovia:defsprite :smoke tovia:radiation
   :unit 1/8
   :texture (fude-gl:find-texture :smoke)
@@ -333,6 +374,10 @@
                     (arm (eql :near-spore)) &rest args)
     (declare (ignore args))
     (tovia:play :spore))
+  (:method :before ((s tovia:being) (win sdl2-ffi:sdl-window)
+                    (arm (eql :scream)) &rest args)
+    (declare (ignore args))
+    (tovia:play :scream))
   (:method ((subject tovia:being) (win sdl2-ffi:sdl-window)
             (arm (eql :step-in-hit)) &rest args)
     (apply #'call-next-method subject win :hit args))
@@ -354,6 +399,23 @@
             (apply #'tovia:sprite :spore win :x x :y y :who subject
                    :allow-other-keys t args)))
         (setf (tovia:last-direction subject) direction))))
+  (:method ((s tovia:being) (win sdl2-ffi:sdl-window) (arm (eql :scream)) &rest
+            args)
+    (let* ((dir (tovia:last-direction s))
+           (dirs #(:n :ne :e :se :s :sw :w :nw))
+           (pos (or (position dir dirs) (error "Internal logical error."))))
+      .
+      #.(mapcar
+          (lambda (x)
+            `(progn
+              (setf (tovia:last-direction s)
+                      (treat-as-circle:elt-as-circle dirs (+ ,x pos)))
+              (tovia:add
+                (multiple-value-bind (x y)
+                    (tovia:front s)
+                  (apply #'tovia:sprite arm win :x x :y y :who s :direction
+                         (tovia:last-direction s) :allow-other-keys t args)))))
+          '(0 -1 1))))
   (:method ((subject tovia:being) (win sdl2-ffi:sdl-window) arm &rest args)
     (tovia:add
       (multiple-value-bind (x y)
@@ -449,7 +511,7 @@
           (let ((nearest (tovia:nearest target)))
             (setf (tovia:last-direction s) (tovia:target-direction s nearest))
             (when (zerop (random 6))
-              (attack s win :energy)))
+              (attack s win :scream)))
           (tovia:walk-random s))))
   (:method ((s snake) (win sdl2-ffi:sdl-window))
     (let ((target
