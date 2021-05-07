@@ -250,7 +250,7 @@
   :unit 1/8
   :texture (fude-gl:find-texture :smoke)
   :stepper (alexandria:circular-list '(0 0) '(1 0) '(2 0))
-  :time 90
+  :timer 90
   :projection #'fude-gl:ortho
   :effects (list (tovia:damager 5)))
 
