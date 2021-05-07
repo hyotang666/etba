@@ -511,27 +511,52 @@
   (:method ((s worm) (win sdl2-ffi:sdl-window)) (tovia:walk-random s))
   (:method (s w)))
 
-(defmethod tovia:react :before ((e tovia:phenomenon) (s mashroom))
+(defmacro defreact (&rest args)
+  (let* ((body args)
+         (key
+          (when (keywordp (car body))
+            (list (pop body)))))
+    `(progn
+      (defmethod tovia:react ,@key ,@body)
+      (defmethod tovia:react ,@key ,(reverse (car body)) ,@(cdr body)))))
+
+(defun pprint-defreact (stream exp)
+  (pprint-logical-block (stream exp :prefix "(" :suffix ")")
+    (write (pprint-pop) :stream stream)
+    (pprint-exit-if-list-exhausted)
+    (write-char #\Space stream)
+    (pprint-indent :block 1 stream)
+    (pprint-newline :miser stream)
+    (let ((key? (pprint-pop)))
+      (cond
+        ((keywordp key?)
+         (write key? :stream stream)
+         (pprint-exit-if-list-exhausted)
+         (write-char #\Space stream)
+         (pprint-newline :miser stream)
+         (write (pprint-pop) :stream stream)
+         (pprint-exit-if-list-exhausted)
+         (write-char #\Space stream)
+         (pprint-newline :linear stream))
+        (t
+         (write key? :stream stream)
+         (pprint-exit-if-list-exhausted)
+         (write-char #\Space stream)
+         (pprint-newline :linear stream))))
+    (loop (write (pprint-pop) :stream stream)
+          (pprint-exit-if-list-exhausted)
+          (write-char #\Space stream)
+          (pprint-newline :linear stream))))
+
+(set-pprint-dispatch '(cons (member defreact)) 'pprint-defreact)
+
+(defreact :before ((s mashroom) (e tovia:phenomenon))
   (when (and (not (tovia:action-reserved-p :attack s))
              (not (eq s (tovia:who e))))
     (tovia:reserve-actions s
                            (cons :attack (lambda (s w) (attack s w :spore))))))
 
-(defmethod tovia:react :before ((s mashroom) (e tovia:phenomenon))
-  (when (and (not (tovia:action-reserved-p :attack s))
-             (not (eq s (tovia:who e))))
-    (tovia:reserve-actions s
-                           (cons :attack (lambda (s w) (attack s w :spore))))))
-
-(defmethod tovia:react :before ((e tovia:phenomenon) (s rat))
-  (when (and (not (tovia:action-reserved-p :run s)) (not (eq s (tovia:who e))))
-    (tovia:reserve-actions s
-                           (cons :run (lambda (s w)
-                                        (tovia:move s w
-                                                    :direction (tovia:last-direction
-                                                                 e)))))))
-
-(defmethod tovia:react :before ((s rat) (e tovia:phenomenon))
+(defreact :before ((s rat) (e tovia:phenomenon))
   (when (and (not (tovia:action-reserved-p :run s)) (not (eq s (tovia:who e))))
     (tovia:reserve-actions s
                            (cons :run (lambda (s w)
