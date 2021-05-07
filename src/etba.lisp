@@ -57,6 +57,8 @@
 
 (defclass cat (tovia:npc) ((victim :initform nil :accessor victim)))
 
+(defclass snake (tovia:npc) ((enemy :initform nil :accessor enemy)))
+
 (defmethod initialize-instance :after ((o wood-golem) &key x y)
   (setf (slot-value o 'territory) (3d-vectors:vec2 x y)))
 
@@ -514,22 +516,34 @@
               (attack s win :scream)))
           (tovia:walk-random s))))
   (:method ((s snake) (win sdl2-ffi:sdl-window))
-    (let ((target
-           (uiop:while-collecting (acc)
-             (tovia:do-beings (b)
-               (when (typep b '(or tovia:player rat snail))
-                 (multiple-value-bind (see? distance)
-                     (tovia:in-sight-p s b (* 5 (tovia:boxel)))
-                   (when see?
-                     (acc (cons distance b)))))))))
-      (if target
-          (let ((nearest (tovia:nearest target)))
-            (if (tovia:in-sight-p s nearest (tovia:boxel))
-                (when (zerop (random 5))
-                  (attack s win :hit))
-                (tovia:move s win
-                            :direction (tovia:target-direction s nearest))))
-          (tovia:walk-random s))))
+    (if (enemy s)
+        (cond
+          ((not (tovia:in-sight-p s (enemy s) (tovia:boxel)))
+           (tovia:move s win :direction (tovia:target-direction s (enemy s))))
+          ((zerop (random 8))
+           (setf (tovia:last-direction s) (tovia:target-direction s (enemy s)))
+           (attack s win :hit)
+           (when (<= (tovia:current (tovia:life (enemy s))) 0)
+             (setf (enemy s) nil))))
+        (let ((target
+               (uiop:while-collecting (acc)
+                 (tovia:do-beings (b)
+                   (when (and (typep b '(or rat snail snake beetle crow))
+                              (not (eq b s)))
+                     (multiple-value-bind (see? distance)
+                         (tovia:in-sight-p s b (* 2 (tovia:boxel)))
+                       (when see?
+                         (acc (cons distance b))))))))
+              nearest)
+          (cond ((null target) (tovia:walk-random s))
+                ((tovia:in-sight-p s (setf nearest (tovia:nearest target))
+                                   (tovia:boxel))
+                 (when (zerop (random 16))
+                   (attack s win :hit)))
+                (t
+                 (tovia:move s win
+                             :direction (tovia:target-direction s
+                                                                nearest)))))))
   (:method ((s beetle) (win sdl2-ffi:sdl-window))
     (multiple-value-bind (target home)
         (uiop:while-collecting (snail wood)
@@ -634,6 +648,20 @@
                                         (tovia:move s w
                                                     :direction (tovia:last-direction
                                                                  e)))))))
+
+(defreact :before ((s snake) (e tovia:phenomenon))
+  (cond
+    ((enemy s)
+     (if (not (tovia:in-sight-p s (enemy s) (* 2 (tovia:boxel))))
+         (setf (enemy s) nil)))
+    ((tovia:in-sight-p s (tovia:who e) (* 2 (tovia:boxel)))
+     (setf (enemy s) (tovia:who e)))
+    ((not (tovia:action-reserved-p :run s))
+     (tovia:reserve-actions s
+                            (cons :run (lambda (s w)
+                                         (tovia:move s w
+                                                     :direction (tovia:last-direction
+                                                                  e))))))))
 
 (defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
   (let* ((range 6)
