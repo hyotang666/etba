@@ -2,7 +2,7 @@
 (in-package :asdf)
 (defsystem "etba"
   :version
-  "1.26.0"
+  "1.26.1"
   :depends-on
   (
    "uiop" ; Utilities.

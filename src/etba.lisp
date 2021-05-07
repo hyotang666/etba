@@ -35,7 +35,8 @@
   (def :dash "dash.wav")
   (def :guard "guard.wav")
   (def :backstep "backstep.wav")
-  (def :shield-bash "shield-bash.wav"))
+  (def :shield-bash "shield-bash.wav")
+  (def :spore "spore.wav"))
 
 ;;;; TEXTURES
 
@@ -324,6 +325,14 @@
                     (arm (eql :hit)) &rest args)
     (declare (ignore args))
     (tovia:play :swing-light))
+  (:method :before ((s tovia:being) (win sdl2-ffi:sdl-window)
+                    (arm (eql :spore)) &rest args)
+    (declare (ignore args))
+    (tovia:play :spore))
+  (:method :before ((s tovia:being) (win sdl2-ffi:sdl-window)
+                    (arm (eql :near-spore)) &rest args)
+    (declare (ignore args))
+    (tovia:play :spore))
   (:method ((subject tovia:being) (win sdl2-ffi:sdl-window)
             (arm (eql :step-in-hit)) &rest args)
     (apply #'call-next-method subject win :hit args))
