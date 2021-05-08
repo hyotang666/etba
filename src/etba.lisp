@@ -48,24 +48,6 @@
 (defun image-pathname (name)
   (truename (merge-pathnames name *default-image-directory*)))
 
-(progn
- .
- #.(mapcar (lambda (name) `(defclass ,name (tovia:npc) ()))
-           '(mashroom snail ameba rat mandrake snake beetle worm)))
-
-(defclass wood-golem (tovia:npc) ((territory :reader territory)))
-
-(defclass cat (tovia:npc) ((victim :initform nil :accessor victim)))
-
-(defclass snake (tovia:npc) ((enemy :initform nil :accessor enemy)))
-
-(defmethod initialize-instance :after ((o wood-golem) &key x y)
-  (setf (slot-value o 'territory) (3d-vectors:vec2 x y)))
-
-(defmethod quaspar:x ((o 3d-vectors:vec2)) (3d-vectors:vx o))
-
-(defmethod quaspar:y ((o 3d-vectors:vec2)) (3d-vectors:vy o))
-
 (defparameter *damage* nil)
 
 (defclass damage ()
@@ -103,28 +85,10 @@
   (def :energy "effects/energy.png")
   (def :scream "effects/scream.png")
   (def :barrage "effects/barrage.png")
-  (def :mashroom "characters/mashroom.png" mashroom :response 8 :reactions
-   (list :spore (lambda (mashroom who)
-                  (flet ((do-attack (s w)
-                           (setf (tovia:last-direction s)
-                                   (tovia:target-direction s who))
-                           (attack s w :near-spore)))
-                    (unless (tovia:action-reserved-p :attack mashroom)
-                      (tovia:reserve-actions mashroom
-                                             (cons :attack #'do-attack)))))))
   (def :preliminary "effects/preliminary.png")
   (def :guard "effects/guard.png")
-  (def :snail "characters/snail.png" snail :response 8)
-  (def :wood-golem "characters/wood-golem.png" wood-golem :response 32)
   (def :smoke "effects/smoke.png")
-  (def :spore "effects/spore.png")
-  (def :ameba "characters/ameba.png" ameba :response 8)
-  (def :rat "characters/rat.png" rat :response 96)
-  (def :mandrake "characters/mandrake.png" mandrake :response 32)
-  (def :snake "characters/snake.png" snake :response 32)
-  (def :beetle "characters/beetle.png" beetle :response 16)
-  (def :cat "characters/cat.png" cat :response 64)
-  (def :worm "characters/worm.png" worm :response 8))
+  (def :spore "effects/spore.png"))
 
 (tovia:defsprite :magic-circle tovia:trigger
   :unit 1
@@ -449,151 +413,6 @@
       (2 (attack s win :energy))
       ((3 4 5 6 7 8 9)
        (tovia:move s win :direction (tovia:target-direction s *player*)))))
-  (:method ((s mashroom) (win sdl2-ffi:sdl-window))
-    (let ((wood
-           (uiop:while-collecting (collect)
-             (tovia:do-beings (b)
-               (when (typep b 'wood-golem)
-                 (collect (cons (tovia:distance s b) b)))))))
-      (if wood
-          (tovia:move s win
-                      :direction (tovia:target-direction s
-                                                         (tovia:nearest wood)))
-          (setf (tovia:last-direction s)
-                  (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))))))
-  (:method ((s snail) (win sdl2-ffi:sdl-window))
-    (let ((targets
-           (uiop:while-collecting (acc)
-             (tovia:do-beings (e)
-               (when (typep e '(or ameba mashroom wood-golem))
-                 (acc (cons (tovia:distance s e) e)))))))
-      (if (null targets)
-          (tovia:walk-random s)
-          (let ((nearest (tovia:nearest targets)))
-            (if (not (tovia:in-sight-p s nearest (tovia:boxel)))
-                (tovia:move s win
-                            :direction (tovia:target-direction s nearest))
-                (etypecase nearest
-                  ((or mashroom wood-golem)
-                   (setf (tovia:last-direction s)
-                           (tovia:target-direction s nearest))
-                   (attack s win :hit))
-                  (ameba
-                   (tovia:move s win
-                               :direction (tovia:target-direction s
-                                                                  nearest)))))))))
-  (:method ((s ameba) (win sdl2-ffi:sdl-window))
-    (let ((targets (tovia:in-sight-beings s (tovia:boxel))))
-      (if targets
-          (let ((nearest (tovia:nearest targets)))
-            (setf (tovia:last-direction s) (tovia:target-direction s nearest))
-            (attack s win :hit))
-          (tovia:walk-random s))))
-  (:method ((s rat) (win sdl2-ffi:sdl-window))
-    (let ((beings (tovia:in-sight-beings s (tovia:boxel)))
-          (dir #(:n :ne :e :se :s :sw :w :nw)))
-      (cond
-        (beings
-         (setf (tovia:last-direction s)
-                 (tovia:target-direction s (tovia:nearest beings)))
-         (attack s win :hit))
-        ((tovia:forwardablep s win (tovia:last-direction s))
-         (tovia:move s win :direction (tovia:last-direction s)))
-        ((zerop (random 16))
-         (let ((index
-                (+ (aref #(2 -2) (random 2))
-                   (or (position (tovia:last-direction s) dir)
-                       (error "Internal logical error.")))))
-           (tovia:move s win
-                       :direction (treat-as-circle:elt-as-circle dir
-                                                                 index)))))))
-  (:method ((s mandrake) (win sdl2-ffi:sdl-window))
-    (let ((target (tovia:in-sight-beings s (* 4 (tovia:boxel)))))
-      (if target
-          (let ((nearest (tovia:nearest target)))
-            (setf (tovia:last-direction s) (tovia:target-direction s nearest))
-            (when (zerop (random 6))
-              (attack s win :scream)))
-          (tovia:walk-random s))))
-  (:method ((s snake) (win sdl2-ffi:sdl-window))
-    (if (enemy s)
-        (cond
-          ((not (tovia:in-sight-p s (enemy s) (tovia:boxel)))
-           (tovia:move s win :direction (tovia:target-direction s (enemy s))))
-          ((zerop (random 8))
-           (setf (tovia:last-direction s) (tovia:target-direction s (enemy s)))
-           (attack s win :hit)
-           (when (<= (tovia:current (tovia:life (enemy s))) 0)
-             (setf (enemy s) nil))))
-        (let ((target
-               (uiop:while-collecting (acc)
-                 (tovia:do-beings (b)
-                   (when (and (typep b '(or rat snail snake beetle crow))
-                              (not (eq b s)))
-                     (multiple-value-bind (see? distance)
-                         (tovia:in-sight-p s b (* 2 (tovia:boxel)))
-                       (when see?
-                         (acc (cons distance b))))))))
-              nearest)
-          (cond ((null target) (tovia:walk-random s))
-                ((tovia:in-sight-p s (setf nearest (tovia:nearest target))
-                                   (tovia:boxel))
-                 (when (zerop (random 16))
-                   (attack s win :hit)))
-                (t
-                 (tovia:move s win
-                             :direction (tovia:target-direction s
-                                                                nearest)))))))
-  (:method ((s beetle) (win sdl2-ffi:sdl-window))
-    (multiple-value-bind (target home)
-        (uiop:while-collecting (snail wood)
-          (tovia:do-beings (b)
-            (multiple-value-bind (see? distance)
-                (tovia:in-sight-p s b (* 3 (tovia:boxel)))
-              (when see?
-                (typecase b
-                  (wood-golem (wood (cons distance b)))
-                  (snail (snail (cons distance b))))))))
-      (if target
-          (let ((nearest (tovia:nearest target)))
-            (if (tovia:in-sight-p s nearest (tovia:boxel))
-                (when (zerop (random 8))
-                  (setf (tovia:last-direction s)
-                          (tovia:target-direction s nearest))
-                  (attack s win :barrage))
-                (tovia:move s win
-                            :direction (tovia:target-direction s nearest))))
-          (if home
-              (tovia:move s win
-                          :direction (tovia:target-direction s
-                                                             (tovia:nearest
-                                                               home)))
-              (tovia:walk-random s)))))
-  (:method ((s cat) (win sdl2-ffi:sdl-window))
-    (if (victim s)
-        (if (zerop (random 8))
-            (progn
-             (attack s win :hit)
-             (when (<= (tovia:current (tovia:life (victim s))) 0)
-               (setf (victim s) nil)))
-            (tovia:move s win
-                        :direction (tovia:target-direction s (victim s))))
-        (let ((target
-               (uiop:while-collecting (acc)
-                 (tovia:do-beings (b)
-                   (when (typep b '(or beetle snail rat snake))
-                     (multiple-value-bind (see? distance)
-                         (tovia:in-sight-p s b (* 3 (tovia:boxel)))
-                       (when see?
-                         (acc (cons distance b)))))))))
-          (if target
-              (let ((nearest (tovia:nearest target)))
-                (setf (victim s) nearest)
-                (tovia:move s win
-                            :direction (tovia:target-direction s nearest)))
-              (when (zerop (random 5))
-                (tovia:walk-random s))))))
-  (:method ((s worm) (win sdl2-ffi:sdl-window)) (tovia:walk-random s))
   (:method (s w)))
 
 (defmacro defreact (&rest args)
@@ -635,11 +454,146 @@
 
 (set-pprint-dispatch '(cons (member defreact)) 'pprint-defreact)
 
+;;;; MASHROOM
+
+(defclass mashroom (tovia:npc) ())
+
+(fude-gl:defimage :mashroom (image-pathname "characters/mashroom.png"))
+
+(fude-gl:deftexture :mashroom :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :mashroom))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :mashroom mashroom
+  :unit 1/8
+  :texture (fude-gl:find-texture :mashroom)
+  :projection #'fude-gl:ortho
+  :response 8
+  :reactions (list :spore (lambda (mashroom who)
+                            (flet ((do-attack (s w)
+                                     (setf (tovia:last-direction s)
+                                             (tovia:target-direction s who))
+                                     (attack s w :near-spore)))
+                              (unless (tovia:action-reserved-p :attack mashroom)
+                                (tovia:reserve-actions mashroom
+                                                       (cons :attack #'do-attack)))))))
+
+(defmethod action ((s mashroom) (win sdl2-ffi:sdl-window))
+  (let ((wood
+         (uiop:while-collecting (collect)
+           (tovia:do-beings (b)
+             (when (typep b 'wood-golem)
+               (collect (cons (tovia:distance s b) b)))))))
+    (if wood
+        (tovia:move s win
+                    :direction (tovia:target-direction s (tovia:nearest wood)))
+        (setf (tovia:last-direction s)
+                (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))))))
+
 (defreact :before ((s mashroom) (e tovia:phenomenon))
   (when (and (not (tovia:action-reserved-p :attack s))
              (not (eq s (tovia:who e))))
     (tovia:reserve-actions s
                            (cons :attack (lambda (s w) (attack s w :spore))))))
+
+;;;; SNAIL
+
+(defclass snail (tovia:npc) ())
+
+(fude-gl:defimage :snail (image-pathname "characters/snail.png"))
+
+(fude-gl:deftexture :snail :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :snail))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :snail snail
+  :unit 1/8
+  :texture (fude-gl:find-texture :snail)
+  :projection #'fude-gl:ortho
+  :response 8)
+
+(defmethod action ((s snail) (win sdl2-ffi:sdl-window))
+  (let ((targets
+         (uiop:while-collecting (acc)
+           (tovia:do-beings (e)
+             (when (typep e '(or ameba mashroom wood-golem))
+               (acc (cons (tovia:distance s e) e)))))))
+    (if (null targets)
+        (tovia:walk-random s)
+        (let ((nearest (tovia:nearest targets)))
+          (if (not (tovia:in-sight-p s nearest (tovia:boxel)))
+              (tovia:move s win :direction (tovia:target-direction s nearest))
+              (etypecase nearest
+                ((or mashroom wood-golem)
+                 (setf (tovia:last-direction s)
+                         (tovia:target-direction s nearest))
+                 (attack s win :hit))
+                (ameba
+                 (tovia:move s win
+                             :direction (tovia:target-direction s
+                                                                nearest)))))))))
+
+;;;; AMEBA
+
+(defclass ameba (tovia:npc) ())
+
+(fude-gl:defimage :ameba (image-pathname "characters/ameba.png"))
+
+(fude-gl:deftexture :ameba :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :ameba))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :ameba ameba
+  :unit 1/8
+  :texture (fude-gl:find-texture :ameba)
+  :projection #'fude-gl:ortho
+  :response 8)
+
+(defmethod action ((s ameba) (win sdl2-ffi:sdl-window))
+  (let ((targets (tovia:in-sight-beings s (tovia:boxel))))
+    (if targets
+        (let ((nearest (tovia:nearest targets)))
+          (setf (tovia:last-direction s) (tovia:target-direction s nearest))
+          (attack s win :hit))
+        (tovia:walk-random s))))
+
+;;;; RAT
+
+(defclass rat (tovia:npc) ())
+
+(fude-gl:defimage :rat (image-pathname "characters/rat.png"))
+
+(fude-gl:deftexture :rat :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :rat))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :rat rat
+  :unit 1/8
+  :texture (fude-gl:find-texture :rat)
+  :projection #'fude-gl:ortho
+  :response 96)
+
+(defmethod action ((s rat) (win sdl2-ffi:sdl-window))
+  (let ((beings (tovia:in-sight-beings s (tovia:boxel)))
+        (dir #(:n :ne :e :se :s :sw :w :nw)))
+    (cond
+      (beings
+       (setf (tovia:last-direction s)
+               (tovia:target-direction s (tovia:nearest beings)))
+       (attack s win :hit))
+      ((tovia:forwardablep s win (tovia:last-direction s))
+       (tovia:move s win :direction (tovia:last-direction s)))
+      ((zerop (random 16))
+       (let ((index
+              (+ (aref #(2 -2) (random 2))
+                 (or (position (tovia:last-direction s) dir)
+                     (error "Internal logical error.")))))
+         (tovia:move s win
+                     :direction (treat-as-circle:elt-as-circle dir index)))))))
 
 (defreact :before ((s rat) (e tovia:phenomenon))
   (when (and (not (tovia:action-reserved-p :run s)) (not (eq s (tovia:who e))))
@@ -649,19 +603,109 @@
                                                     :direction (tovia:last-direction
                                                                  e)))))))
 
-(defreact :before ((s snake) (e tovia:phenomenon))
-  (cond
-    ((enemy s)
-     (if (not (tovia:in-sight-p s (enemy s) (* 2 (tovia:boxel))))
-         (setf (enemy s) nil)))
-    ((tovia:in-sight-p s (tovia:who e) (* 2 (tovia:boxel)))
-     (setf (enemy s) (tovia:who e)))
-    ((not (tovia:action-reserved-p :run s))
-     (tovia:reserve-actions s
-                            (cons :run (lambda (s w)
-                                         (tovia:move s w
-                                                     :direction (tovia:last-direction
-                                                                  e))))))))
+;;;; MANDRAKE
+
+(defclass mandrake (tovia:npc) ())
+
+(fude-gl:defimage :mandrake (image-pathname "characters/mandrake.png"))
+
+(fude-gl:deftexture :mandrake :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :mandrake))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :mandrake mandrake
+  :unit 1/8
+  :texture (fude-gl:find-texture :mandrake)
+  :projection #'fude-gl:ortho
+  :response 32)
+
+(defmethod action ((s mandrake) (win sdl2-ffi:sdl-window))
+  (let ((target (tovia:in-sight-beings s (* 4 (tovia:boxel)))))
+    (if target
+        (let ((nearest (tovia:nearest target)))
+          (setf (tovia:last-direction s) (tovia:target-direction s nearest))
+          (when (zerop (random 16))
+            (attack s win :scream)))
+        (tovia:walk-random s))))
+
+;;;; BEETLE
+
+(defclass beetle (tovia:npc) ())
+
+(fude-gl:defimage :beetle (image-pathname "characters/beetle.png"))
+
+(fude-gl:deftexture :beetle :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :beetle))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :beetle beetle
+  :unit 1/8
+  :texture (fude-gl:find-texture :beetle)
+  :projection #'fude-gl:ortho
+  :response 16)
+
+(defmethod action ((s beetle) (win sdl2-ffi:sdl-window))
+  (let (target nearest)
+    (tovia:do-beings (b)
+      (multiple-value-bind (see? distance)
+          (tovia:in-sight-p s b (* 3 (tovia:boxel)))
+        (when see?
+          (typecase b
+            ((or mandrake mashroom wood-golem)
+             (push (cons distance b) target))))))
+    (cond ((null target) (tovia:walk-random s))
+          ((tovia:in-sight-p s (setf nearest (tovia:nearest target))
+                             (tovia:boxel))
+           (when (zerop (random 8))
+             (setf (tovia:last-direction s) (tovia:target-direction s nearest))
+             (attack s win :barrage)))
+          (t
+           (tovia:move s win :direction (tovia:target-direction s nearest))))))
+
+;;;; WORM
+
+(defclass worm (tovia:npc) ())
+
+(fude-gl:defimage :worm (image-pathname "characters/worm.png"))
+
+(fude-gl:deftexture :worm :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :worm))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :worm worm
+  :unit 1/8
+  :texture (fude-gl:find-texture :worm)
+  :projection #'fude-gl:ortho
+  :response 8)
+
+(defmethod action ((s worm) (win sdl2-ffi:sdl-window)) (tovia:walk-random s))
+
+;;;; WOOD-GOLEM
+
+(defclass wood-golem (tovia:npc) ((territory :reader territory)))
+
+(defmethod initialize-instance :after ((o wood-golem) &key x y)
+  (setf (slot-value o 'territory) (3d-vectors:vec2 x y)))
+
+(defmethod quaspar:x ((o 3d-vectors:vec2)) (3d-vectors:vx o))
+
+(defmethod quaspar:y ((o 3d-vectors:vec2)) (3d-vectors:vy o))
+
+(fude-gl:defimage :wood-golem (image-pathname "characters/wood-golem.png"))
+
+(fude-gl:deftexture :wood-golem :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :wood-golem))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :wood-golem wood-golem
+  :unit 1/8
+  :texture (fude-gl:find-texture :wood-golem)
+  :projection #'fude-gl:ortho
+  :response 32)
 
 (defmethod action ((s wood-golem) (win sdl2-ffi:sdl-window))
   (let* ((range 6)
@@ -693,6 +737,108 @@
             (tovia:walk-random s)
             (tovia:move s win
                         :direction (tovia:target-direction s (territory s)))))))
+
+;;;; CAT
+
+(defclass cat (tovia:npc) ((victim :initform nil :accessor victim)))
+
+(fude-gl:defimage :cat (image-pathname "characters/cat.png"))
+
+(fude-gl:deftexture :cat :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :cat))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :cat cat
+  :unit 1/8
+  :texture (fude-gl:find-texture :cat)
+  :projection #'fude-gl:ortho
+  :response 64)
+
+(defmethod action ((s cat) (win sdl2-ffi:sdl-window))
+  (if (victim s)
+      (if (zerop (random 8))
+          (progn
+           (attack s win :hit)
+           (when (<= (tovia:current (tovia:life (victim s))) 0)
+             (setf (victim s) nil)))
+          (tovia:move s win :direction (tovia:target-direction s (victim s))))
+      (let ((target
+             (uiop:while-collecting (acc)
+               (tovia:do-beings (b)
+                 (when (typep b '(or beetle snail rat snake))
+                   (multiple-value-bind (see? distance)
+                       (tovia:in-sight-p s b (* 3 (tovia:boxel)))
+                     (when see?
+                       (acc (cons distance b)))))))))
+        (if target
+            (let ((nearest (tovia:nearest target)))
+              (setf (victim s) nearest)
+              (tovia:move s win :direction (tovia:target-direction s nearest)))
+            (when (zerop (random 5))
+              (tovia:walk-random s))))))
+
+;;;; SNAKE
+
+(defclass snake (tovia:npc) ((enemy :initform nil :accessor enemy)))
+
+(fude-gl:defimage :snake (image-pathname "characters/snake.png"))
+
+(fude-gl:deftexture :snake :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :snake))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :snake snake
+  :unit 1/8
+  :texture (fude-gl:find-texture :snake)
+  :projection #'fude-gl:ortho
+  :response 32)
+
+(defmethod action ((s snake) (win sdl2-ffi:sdl-window))
+  (if (enemy s)
+      (cond
+        ((not (tovia:in-sight-p s (enemy s) (tovia:boxel)))
+         (tovia:move s win :direction (tovia:target-direction s (enemy s))))
+        ((zerop (random 8))
+         (setf (tovia:last-direction s) (tovia:target-direction s (enemy s)))
+         (attack s win :hit)
+         (when (<= (tovia:current (tovia:life (enemy s))) 0)
+           (setf (enemy s) nil))))
+      (let ((target
+             (uiop:while-collecting (acc)
+               (tovia:do-beings (b)
+                 (when (and (typep b '(or rat snail snake beetle crow))
+                            (not (eq b s)))
+                   (multiple-value-bind (see? distance)
+                       (tovia:in-sight-p s b (* 2 (tovia:boxel)))
+                     (when see?
+                       (acc (cons distance b))))))))
+            nearest)
+        (cond ((null target) (tovia:walk-random s))
+              ((tovia:in-sight-p s (setf nearest (tovia:nearest target))
+                                 (tovia:boxel))
+               (when (zerop (random 16))
+                 (attack s win :hit)))
+              (t
+               (tovia:move s win
+                           :direction (tovia:target-direction s nearest)))))))
+
+(defreact :before ((s snake) (e tovia:phenomenon))
+  (cond
+    ((enemy s)
+     (if (not (tovia:in-sight-p s (enemy s) (* 2 (tovia:boxel))))
+         (setf (enemy s) nil)))
+    ((tovia:in-sight-p s (tovia:who e) (* 2 (tovia:boxel)))
+     (setf (enemy s) (tovia:who e)))
+    ((not (tovia:action-reserved-p :run s))
+     (tovia:reserve-actions s
+                            (cons :run (lambda (s w)
+                                         (tovia:move s w
+                                                     :direction (tovia:last-direction
+                                                                  e))))))))
+
+;;;; PLAYER
 
 (defgeneric key-action (key subject win))
 
