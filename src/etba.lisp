@@ -683,6 +683,27 @@
 
 (defmethod action ((s worm) (win sdl2-ffi:sdl-window)) (tovia:walk-random s))
 
+;;;; CROW
+
+(defclass crow (tovia:npc) ())
+
+(fude-gl:defimage :crow (image-pathname "characters/crow.png"))
+
+(fude-gl:deftexture :crow :texture-2d
+  (fude-gl:tex-image-2d (fude-gl:image :crow))
+  :texture-min-filter :nearest
+  :texture-mag-filter :nearest)
+
+(tovia:defsprite :crow crow
+  :unit 1/8
+  :texture (fude-gl:find-texture :crow)
+  :projection #'fude-gl:ortho
+  :response 8)
+
+(defmethod action ((s crow) (win sdl2-ffi:sdl-window))
+  (when (zerop (random 16))
+    (tovia:walk-random s)))
+
 ;;;; WOOD-GOLEM
 
 (defclass wood-golem (tovia:npc) ((territory :reader territory)))
