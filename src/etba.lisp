@@ -59,6 +59,16 @@
 (defmethod initialize-instance :after ((o damage) &key (life 20))
   (setf (slot-value o 'life) (tovia:make-parameter life)))
 
+(defun add-damage-popup (victim guard damage)
+  (push
+   (make-instance 'damage
+                  :x (quaspar:x victim)
+                  :y (quaspar:y victim)
+                  :damage (if guard
+                              (progn (tovia:play :guard) "GUARD!")
+                              (princ-to-string damage)))
+   *damage*))
+
 (defclass key-tracker (tovia:key-tracker)
   ((last-shield-bash-time :initform (get-internal-real-time)
                           :accessor last-shield-bash-time
@@ -161,18 +171,7 @@
                                                                                     phenomenon)))
                                                (* (1+ coeff) damage 3/2))
                                               (t (* (1+ coeff) damage))))))
-                                (push
-                                 (make-instance 'damage
-                                                :x (quaspar:x victim)
-                                                :y (quaspar:y victim)
-                                                :damage (if guard
-                                                            (progn
-                                                             (tovia:play
-                                                               :guard)
-                                                             "GUARD!")
-                                                            (princ-to-string
-                                                              damage)))
-                                 *damage*)
+                                (add-damage-popup victim guard damage)
                                 damage)))
              (tovia:knock-backer (tovia:boxel))))
 
@@ -200,18 +199,7 @@
                                                     (tovia:max-of
                                                       (tovia:life
                                                         phenomenon)))))))))
-                                (push
-                                 (make-instance 'damage
-                                                :x (quaspar:x victim)
-                                                :y (quaspar:y victim)
-                                                :damage (if guard
-                                                            (progn
-                                                             (tovia:play
-                                                               :guard)
-                                                             "GUARD!")
-                                                            (princ-to-string
-                                                              damage)))
-                                 *damage*)
+                                (add-damage-popup victim guard damage)
                                 damage)))
              (tovia:knock-backer 10)))
 
@@ -239,18 +227,7 @@
                                                     (tovia:max-of
                                                       (tovia:life
                                                         phenomenon)))))))))
-                                (push
-                                 (make-instance 'damage
-                                                :x (quaspar:x victim)
-                                                :y (quaspar:y victim)
-                                                :damage (if guard
-                                                            (progn
-                                                             (tovia:play
-                                                               :guard)
-                                                             "GUARD!")
-                                                            (princ-to-string
-                                                              damage)))
-                                 *damage*)
+                                (add-damage-popup victim guard damage)
                                 damage)))
              (tovia:knock-backer 10)))
 
@@ -260,7 +237,27 @@
   :stepper (alexandria:circular-list '(0 0) '(1 0) '(2 0))
   :timer 90
   :projection #'fude-gl:ortho
-  :effects (list (tovia:damager 5)))
+  :effects (list
+             (tovia:damager 5
+                            (lambda (phenomenon victim damage)
+                              (let* ((guard
+                                      (tovia:find-coeff :guard (tovia:coeff-of
+                                                                 :status-effect victim)))
+                                     (coeff (hit-dir-coeff phenomenon victim))
+                                     (damage
+                                      (round
+                                        (if guard
+                                            (* damage coeff)
+                                            (* (1+ coeff)
+                                               (* damage
+                                                  (/
+                                                    (tovia:current
+                                                      (tovia:life phenomenon))
+                                                    (tovia:max-of
+                                                      (tovia:life
+                                                        phenomenon)))))))))
+                                (add-damage-popup victim guard damage)
+                                damage)))))
 
 (tovia:defsprite :barrage tovia:melee
   :unit 1/8
@@ -269,7 +266,26 @@
   :timer 180
   :projection #'fude-gl:ortho
   :life 40
-  :effects (list (tovia:damager 5) (tovia:knock-backer 10)))
+  :effects (list
+             (tovia:damager 5
+                            (lambda (phenomenon victim damage)
+                              (let* ((guard
+                                      (tovia:find-coeff :guard (tovia:coeff-of
+                                                                 :status-effect victim)))
+                                     (damage
+                                      (round
+                                        (if guard
+                                            0
+                                            (* damage
+                                               (/
+                                                 (tovia:current
+                                                   (tovia:life phenomenon))
+                                                 (tovia:max-of
+                                                   (tovia:life
+                                                     phenomenon))))))))
+                                (add-damage-popup victim guard damage)
+                                damage)))
+             (tovia:knock-backer 10)))
 
 (tovia:defsprite :spore tovia:effect
   :unit 1/8
@@ -277,7 +293,25 @@
   :stepper (alexandria:circular-list '(0 0) '(1 0) '(2 0) nil)
   :projection #'fude-gl:ortho
   :timer 45
-  :effects (list (tovia:damager 5)))
+  :effects (list
+             (tovia:damager 5
+                            (lambda (phenomenon victim damage)
+                              (let* ((guard
+                                      (tovia:find-coeff :guard (tovia:coeff-of
+                                                                 :status-effect victim)))
+                                     (damage
+                                      (round
+                                        (if guard
+                                            0
+                                            (* damage
+                                               (/
+                                                 (tovia:current
+                                                   (tovia:life phenomenon))
+                                                 (tovia:max-of
+                                                   (tovia:life
+                                                     phenomenon))))))))
+                                (add-damage-popup victim guard damage)
+                                damage)))))
 
 (defgeneric attack (subject win arm &rest args)
   (:method :around ((s tovia:npc) (win sdl2-ffi:sdl-window) arm &rest args)
