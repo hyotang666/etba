@@ -896,7 +896,7 @@
       (cond
         ((not (tovia:in-sight-p s (enemy s) (tovia:boxel)))
          (tovia:move s win :direction (tovia:target-direction s (enemy s))))
-        ((zerop (random 8))
+        ((zerop (random 4))
          (setf (tovia:last-direction s) (tovia:target-direction s (enemy s)))
          (attack s win :hit)
          (when (<= (tovia:current (tovia:life (enemy s))) 0)
@@ -914,7 +914,7 @@
         (cond ((null target) (tovia:walk-random s))
               ((tovia:in-sight-p s (setf nearest (tovia:nearest target))
                                  (tovia:boxel))
-               (when (zerop (random 16))
+               (when (zerop (random 8))
                  (attack s win :hit)))
               (t
                (tovia:move s win
