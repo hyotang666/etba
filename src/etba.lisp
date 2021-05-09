@@ -857,26 +857,22 @@
 
 (defmethod action ((s cat) (win sdl2-ffi:sdl-window))
   (if (victim s)
-      (if (zerop (random 8))
-          (progn
-           (attack s win :hit)
-           (when (<= (tovia:current (tovia:life (victim s))) 0)
-             (setf (victim s) nil)))
+      (if (tovia:in-sight-p s (victim s) (tovia:boxel))
+          (when (zerop (random 8))
+            (setf (tovia:last-direction s)
+                    (tovia:target-direction s (victim s)))
+            (attack s win :step-in-hit)
+            (when (<= (tovia:current (tovia:life (victim s))) 0)
+              (setf (victim s) nil)))
           (tovia:move s win :direction (tovia:target-direction s (victim s))))
-      (let ((target
-             (uiop:while-collecting (acc)
-               (tovia:do-beings (b)
-                 (when (typep b '(or beetle snail rat snake))
-                   (multiple-value-bind (see? distance)
-                       (tovia:in-sight-p s b (* 3 (tovia:boxel)))
-                     (when see?
-                       (acc (cons distance b)))))))))
-        (if target
-            (let ((nearest (tovia:nearest target)))
-              (setf (victim s) nearest)
-              (tovia:move s win :direction (tovia:target-direction s nearest)))
-            (when (zerop (random 5))
-              (tovia:walk-random s))))))
+      (let ((targets (tovia:in-sight-beings s (* 3 (tovia:boxel)))))
+        (if targets
+            (multiple-value-bind (being distance)
+                (tovia:nearest targets)
+              (setf (victim s) being)
+              (if (<= distance (tovia:boxel))
+                  (when (zerop (random 8))
+                    (attack s win :step-in-hit))))))))
 
 ;;;; SNAKE
 
