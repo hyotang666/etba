@@ -747,7 +747,10 @@
 
 ;;;; CROW
 
-(defclass crow (tovia:npc) ())
+(defclass crow (tovia:npc) ((territory :reader territory)))
+
+(defmethod initialize-instance :after ((o crow) &key x y)
+  (setf (slot-value o 'territory) (3d-vectors:vec2 x y)))
 
 (fude-gl:defimage :crow (image-pathname "characters/crow.png"))
 
@@ -760,11 +763,25 @@
   :unit 1/8
   :texture (fude-gl:find-texture :crow)
   :projection #'fude-gl:ortho
-  :response 8)
+  :response 128)
 
 (defmethod action ((s crow) (win sdl2-ffi:sdl-window))
-  (when (zerop (random 16))
-    (tovia:walk-random s)))
+  (let* ((range 6) (invaders (tovia:in-sight-beings s (* range (tovia:boxel)))))
+    (if invaders
+        (multiple-value-bind (invader distance)
+            (tovia:nearest invaders)
+          (setf (tovia:last-direction s) (tovia:target-direction s invader))
+          (if (<= distance (tovia:boxel))
+              (when (zerop (random 16))
+                (attack s win :hit))
+              (if (zerop (random 64))
+                  (attack s win :scream)
+                  (tovia:move s win
+                              :direction (tovia:target-direction s invader)))))
+        (if (tovia:in-sight-p (territory s) s (* range (tovia:boxel)))
+            (tovia:walk-random s)
+            (tovia:move s win
+                        :direction (tovia:target-direction s (territory s)))))))
 
 ;;;; WOOD-GOLEM
 
