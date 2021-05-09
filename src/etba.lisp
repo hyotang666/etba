@@ -228,8 +228,7 @@
                                                       (tovia:life
                                                         phenomenon)))))))))
                                 (add-damage-popup victim guard damage)
-                                damage)))
-             (tovia:knock-backer 10)))
+                                damage)))))
 
 (tovia:defsprite :smoke tovia:radiation
   :unit 1/8
