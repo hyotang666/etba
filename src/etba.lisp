@@ -618,9 +618,10 @@
         (dir #(:n :ne :e :se :s :sw :w :nw)))
     (cond
       (beings
-       (setf (tovia:last-direction s)
-               (tovia:target-direction s (tovia:nearest beings)))
-       (attack s win :hit))
+       (when (zerop (random 16))
+         (setf (tovia:last-direction s)
+                 (tovia:target-direction s (tovia:nearest beings)))
+         (attack s win :hit)))
       ((tovia:forwardablep s win (tovia:last-direction s))
        (tovia:move s win :direction (tovia:last-direction s)))
       ((zerop (random 16))
