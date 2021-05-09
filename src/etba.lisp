@@ -454,8 +454,12 @@
           (when (keywordp (car body))
             (list (pop body)))))
     `(progn
-      (defmethod tovia:react ,@key ,@body)
-      (defmethod tovia:react ,@key ,(reverse (car body)) ,@(cdr body)))))
+      (defmethod tovia:react ,@key ,(car body)
+        (unless (eq ,(caaar body) (tovia:who ,(caadar body)))
+          ,@(cdr body)))
+      (defmethod tovia:react ,@key ,(reverse (car body))
+        (unless (eq ,(caaar body) (tovia:who ,(caadar body)))
+          ,@(cdr body))))))
 
 (defun pprint-defreact (stream exp)
   (pprint-logical-block (stream exp :prefix "(" :suffix ")")
@@ -525,8 +529,7 @@
                 (aref #(:s :n :w :e :nw :ne :sw :se) (random 8))))))
 
 (defreact :before ((s mashroom) (e tovia:phenomenon))
-  (when (and (not (tovia:action-reserved-p :attack s))
-             (not (eq s (tovia:who e))))
+  (when (not (tovia:action-reserved-p :attack s))
     (tovia:reserve-actions s
                            (cons :attack (lambda (s w) (attack s w :spore))))))
 
@@ -629,7 +632,7 @@
                      :direction (treat-as-circle:elt-as-circle dir index)))))))
 
 (defreact :before ((s rat) (e tovia:phenomenon))
-  (when (and (not (tovia:action-reserved-p :run s)) (not (eq s (tovia:who e))))
+  (when (not (tovia:action-reserved-p :run s))
     (tovia:reserve-actions s
                            (cons :run (lambda (s w)
                                         (tovia:move s w
