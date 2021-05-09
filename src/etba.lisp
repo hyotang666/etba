@@ -668,7 +668,7 @@
 
 ;;;; BEETLE
 
-(defclass beetle (tovia:npc) ())
+(defclass beetle (tovia:npc) ((enemy :accessor enemy :initform nil)))
 
 (fude-gl:defimage :beetle (image-pathname "characters/beetle.png"))
 
@@ -684,22 +684,47 @@
   :response 16)
 
 (defmethod action ((s beetle) (win sdl2-ffi:sdl-window))
-  (let (target nearest)
-    (tovia:do-beings (b)
-      (multiple-value-bind (see? distance)
-          (tovia:in-sight-p s b (* 3 (tovia:boxel)))
-        (when see?
-          (typecase b
-            ((or mandrake mashroom wood-golem)
-             (push (cons distance b) target))))))
-    (cond ((null target) (tovia:walk-random s))
-          ((tovia:in-sight-p s (setf nearest (tovia:nearest target))
-                             (tovia:boxel))
-           (when (zerop (random 8))
-             (setf (tovia:last-direction s) (tovia:target-direction s nearest))
-             (attack s win :barrage)))
-          (t
-           (tovia:move s win :direction (tovia:target-direction s nearest))))))
+  (if (enemy s)
+      (cond
+        ((not (tovia:in-sight-p s (enemy s) (tovia:boxel)))
+         (tovia:move s win :direction (tovia:target-direction s (enemy s))))
+        ((zerop (random 8))
+         (setf (tovia:last-direction s) (tovia:target-direction s (enemy s)))
+         (attack s win :hit)
+         (when (<= (tovia:current (tovia:life (enemy s))) 0)
+           (setf (enemy s) nil))))
+      (let (target nearest)
+        (tovia:do-beings (b)
+          (multiple-value-bind (see? distance)
+              (tovia:in-sight-p s b (* 3 (tovia:boxel)))
+            (when see?
+              (typecase b
+                ((or mandrake mashroom wood-golem)
+                 (push (cons distance b) target))))))
+        (cond ((null target) (tovia:walk-random s))
+              ((tovia:in-sight-p s (setf nearest (tovia:nearest target))
+                                 (tovia:boxel))
+               (when (zerop (random 8))
+                 (setf (tovia:last-direction s)
+                         (tovia:target-direction s nearest))
+                 (attack s win :barrage)))
+              (t
+               (tovia:move s win
+                           :direction (tovia:target-direction s nearest)))))))
+
+(defreact :before ((s beetle) (e tovia:phenomenon))
+  (cond
+    ((enemy s)
+     (if (not (tovia:in-sight-p s (enemy s) (* 2 (tovia:boxel))))
+         (setf (enemy s) nil)))
+    ((tovia:in-sight-p s (tovia:who e) (* 2 (tovia:boxel)))
+     (setf (enemy s) (tovia:who e)))
+    ((not (tovia:action-reserved-p :run s))
+     (tovia:reserve-actions s
+                            (cons :run (lambda (s w)
+                                         (tovia:move s w
+                                                     :direction (tovia:last-direction
+                                                                  e))))))))
 
 ;;;; WORM
 
