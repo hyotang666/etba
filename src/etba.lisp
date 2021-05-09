@@ -1216,11 +1216,12 @@
                                  :effects (list
                                             (lambda (trigger being)
                                               (declare (ignore being))
-                                              (setf clear nil
-                                                    (tovia:current
-                                                      (tovia:life trigger))
-                                                      0)
-                                              (config-monsters win)))))))))
+                                              (when clear
+                                                (setf clear nil
+                                                      (tovia:current
+                                                        (tovia:life trigger))
+                                                        0)
+                                                (config-monsters win))))))))))
       (setf *player* (tovia:add (tovia:sprite :romius win))
             *damage* nil)
       (config-monsters win))
